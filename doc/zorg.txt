@@ -1,0 +1,121 @@
+*zorg.txt*              Zorg Neovim integration
+
+==============================================================================
+CONTENTS                                                        *zorg-contents*
+
+1. Introduction                                      |zorg-introduction|
+2. Setup                                             |zorg-setup|
+3. Commands                                          |zorg-commands|
+4. LSP                                               |zorg-lsp|
+5. Tree-sitter                                       |zorg-treesitter|
+6. Health                                            |zorg-health|
+7. Development                                       |zorg-development|
+
+==============================================================================
+INTRODUCTION                                                *zorg-introduction*
+
+zorg.nvim provides the Neovim integration shell for Zorg `.z` files.
+
+The current plugin is intentionally skeletal. It detects `.z` files, exposes a
+stable setup entry point, registers command surfaces, and prepares integration
+points for the future `zorg` CLI, `zorg-ls` language server, and
+`zorg-treesitter` parser.
+
+==============================================================================
+SETUP                                                            *zorg-setup*
+
+Add the plugin with your preferred plugin manager, then call:
+>
+  require("zorg").setup()
+<
+
+Default options:
+>
+  require("zorg").setup({
+    root = "~/zorg",
+    cli = {
+      command = "zorg",
+    },
+    lsp = {
+      enabled = true,
+      command = { "zorg-ls" },
+      root_markers = { ".zorgroot" },
+      settings = {},
+    },
+    treesitter = {
+      enabled = true,
+      parser_name = "zorg",
+    },
+  })
+<
+
+No global keymaps are installed.
+
+==============================================================================
+COMMANDS                                                      *zorg-commands*
+
+The plugin defines these user commands:
+
+                                                        *:ZorgIndex*
+:ZorgIndex [args]       Run `zorg index --root {root}` with optional args.
+
+                                                        *:ZorgQuery*
+:ZorgQuery [args]       Run `zorg query --root {root}` with optional args.
+
+                                                        *:ZorgFix*
+:ZorgFix [args]         Run `zorg fix --root {root}` with optional args.
+
+                                                        *:ZorgCapture*
+:ZorgCapture [args]     Run `zorg capture --root {root}` with optional args.
+
+If the `zorg` executable is unavailable, commands fail with a clear error and
+make no changes.
+
+==============================================================================
+LSP                                                                *zorg-lsp*
+
+By default, `zorg.nvim` starts `zorg-ls` for buffers with filetype `zorg` when
+the executable is available.
+
+Root detection first looks upward for configured root markers and otherwise
+falls back to `~/zorg`, matching the Zorg v1 default root. Server behavior,
+diagnostics, completion, references, and rename safety belong to `zorg-ls`.
+
+==============================================================================
+TREE-SITTER                                                *zorg-treesitter*
+
+`zorg.nvim` registers the `zorg` filetype for a future Zorg Tree-sitter parser.
+The parser itself is expected to come from `zorg-treesitter` or a plugin-manager
+parser installation. This plugin does not implement Zorg syntax in Lua.
+
+==============================================================================
+HEALTH                                                        *zorg-health*
+
+Run:
+>
+  :checkhealth zorg
+<
+
+The health check reports whether the Lua modules load, the `zorg` and `zorg-ls`
+executables are present, the configured root exists, and Tree-sitter support is
+available in Neovim.
+
+==============================================================================
+DEVELOPMENT                                              *zorg-development*
+
+Headless smoke validation:
+>
+  nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/smoke.lua -c "qa"
+<
+
+Optional Lua checks:
+>
+  stylua --check .
+  luacheck lua tests filetype.lua plugin ftplugin
+<
+
+The current skeleton intentionally avoids parser, query, model, capture, and
+formatter semantics. Those integrations should delegate to the Zorg CLI,
+language server, and Tree-sitter parser as those projects mature.
+
+vim:tw=78:ts=8:noet:ft=help:norl:
