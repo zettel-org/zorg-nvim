@@ -1,45 +1,14 @@
-vim.opt.runtimepath:prepend(vim.fn.getcwd())
-
-local function assert_eq(actual, expected, message)
-  assert(
-    vim.deep_equal(actual, expected),
-    (message or "values should match")
-      .. "\nexpected: "
-      .. vim.inspect(expected)
-      .. "\nactual: "
-      .. vim.inspect(actual)
-  )
-end
-
-local function tempdir(name)
-  local path = vim.fn.tempname() .. "-" .. name
-  vim.fn.mkdir(path, "p")
-  return path
-end
-
-local function write_executable(path)
-  vim.fn.writefile({ "#!/bin/sh", "echo fake zorg" }, path)
-  vim.fn.setfperm(path, "rwxr-xr-x")
-end
-
-local function wait_for(predicate, message)
-  local ok = vim.wait(1000, predicate, 10)
-  assert(ok, message)
-end
+local test = dofile("tests/testlib.lua")
 
 local config = require("zorg.config")
 local commands = require("zorg.commands")
 
-local original_notify = vim.notify
-local notifications = {}
-vim.notify = function(message, level)
-  table.insert(notifications, { message = message, level = level })
-end
+local notifications, restore_notify = test.capture_notifications()
 
-local root = tempdir("zorg-root")
-local db = tempdir("zorg-db") .. "/zorg.sqlite3"
-local bin = tempdir("zorg-bin") .. "/zorg"
-write_executable(bin)
+local root = test.tempdir("zorg-root")
+local db = test.tempdir("zorg-db") .. "/zorg.sqlite3"
+local bin = test.tempdir("zorg-bin") .. "/zorg"
+test.write_executable(bin)
 
 config.setup({
   root = root,
@@ -52,21 +21,16 @@ config.setup({
   },
 })
 
-local runs = {}
-local next_result = {
+local runner = test.fake_runner({
   code = 0,
   stdout = "",
   stderr = "",
-}
-
-commands._set_runner_for_test(function(argv, on_result)
-  table.insert(runs, vim.deepcopy(argv))
-  on_result(next_result)
-end)
+})
+commands._set_runner_for_test(runner.runner)
 commands.setup()
 
 vim.cmd("ZorgIndex")
-assert_eq(runs[#runs], {
+test.assert_last_argv(runner, {
   bin,
   "db",
   "reindex",
@@ -77,7 +41,7 @@ assert_eq(runs[#runs], {
 }, "ZorgIndex should call db reindex for the configured root")
 
 vim.cmd("ZorgStatus")
-assert_eq(runs[#runs], {
+test.assert_last_argv(runner, {
   bin,
   "db",
   "status",
@@ -87,13 +51,13 @@ assert_eq(runs[#runs], {
   db,
 }, "ZorgStatus should call db status for the configured root")
 
-next_result = {
+runner.result = {
   code = 0,
   stdout = "[ ] @task  inbox.z  Task",
   stderr = "",
 }
 vim.cmd("ZorgQuery #z/todo -did:*")
-assert_eq(runs[#runs], {
+test.assert_last_argv(runner, {
   bin,
   "query",
   "--root",
@@ -102,17 +66,14 @@ assert_eq(runs[#runs], {
   db,
   "#z/todo -did:*",
 }, "ZorgQuery should preserve inline SWOG as one CLI argument")
-wait_for(function()
-  return vim.api.nvim_buf_get_name(0):match("Zorg Query Results") ~= nil
-end, "query output should open a result buffer")
-assert_eq(
-  vim.api.nvim_buf_get_lines(0, 0, -1, false),
+test.wait_for_current_buffer_name("Zorg Query Results", "query output should open a result buffer")
+test.assert_current_lines(
   { "[ ] @task  inbox.z  Task" },
   "query result buffer should contain stdout"
 )
 
 vim.cmd("ZorgQuery --id @query/daily")
-assert_eq(runs[#runs], {
+test.assert_last_argv(runner, {
   bin,
   "query",
   "--root",
@@ -123,14 +84,14 @@ assert_eq(runs[#runs], {
   "@query/daily",
 }, "ZorgQuery --id should preserve flag arguments")
 
-next_result = {
+runner.result = {
   code = 2,
   stdout = "",
   stderr = "query index is stale",
 }
 local before_failure = #notifications
 vim.cmd("ZorgQuery #z/todo")
-wait_for(function()
+test.wait_for(function()
   return #notifications > before_failure
 end, "nonzero query should notify")
 assert(
@@ -138,7 +99,7 @@ assert(
   "nonzero notification should include stderr"
 )
 
-next_result = {
+runner.result = {
   code = 0,
   stdout = "",
   stderr = "",
@@ -148,7 +109,7 @@ vim.fn.writefile({ "%%% @note #z/ref", "Note", "%%%" }, note)
 vim.cmd("edit " .. vim.fn.fnameescape(note))
 vim.bo.filetype = "zorg"
 vim.cmd("ZorgFix")
-assert_eq(runs[#runs], {
+test.assert_last_argv(runner, {
   bin,
   "fix",
   "--root",
@@ -159,10 +120,10 @@ assert_eq(runs[#runs], {
 }, "ZorgFix should default to the current .z buffer and pass store options")
 
 vim.api.nvim_buf_set_lines(0, 1, 2, false, { "Changed note" })
-local before_modified = #runs
+local before_modified = #runner.runs
 local before_modified_notify = #notifications
 vim.cmd("ZorgFix")
-assert_eq(#runs, before_modified, "ZorgFix should not run against an unwritten modified buffer")
+test.assert_eq(#runner.runs, before_modified, "ZorgFix should not run against an unwritten modified buffer")
 assert(
   #notifications > before_modified_notify
     and notifications[#notifications].message:match("Write the buffer"),
@@ -170,7 +131,7 @@ assert(
 )
 
 vim.cmd("ZorgFix!")
-assert_eq(runs[#runs], {
+test.assert_last_argv(runner, {
   bin,
   "fix",
   "--root",
@@ -182,7 +143,7 @@ assert_eq(runs[#runs], {
 
 local captured = root .. "/captured.z"
 vim.fn.writefile({ "%%% @captured #z/ref", "Captured", "%%%" }, captured)
-next_result = {
+runner.result = {
   code = 0,
   stdout = vim.json.encode({
     destination = captured,
@@ -192,7 +153,7 @@ next_result = {
 }
 
 vim.cmd("ZorgCapture --template @tmpl --title Task")
-assert_eq(runs[#runs], {
+test.assert_last_argv(runner, {
   bin,
   "capture",
   "--root",
@@ -205,8 +166,8 @@ assert_eq(runs[#runs], {
   "--title",
   "Task",
 }, "ZorgCapture should prefer JSON and pass store options")
-wait_for(function()
+test.wait_for(function()
   return vim.api.nvim_buf_get_name(0) == captured
 end, "capture JSON success should open the created destination")
 
-vim.notify = original_notify
+restore_notify()

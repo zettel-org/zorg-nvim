@@ -1,40 +1,13 @@
-vim.opt.runtimepath:prepend(vim.fn.getcwd())
-
-local function assert_eq(actual, expected, message)
-  assert(
-    vim.deep_equal(actual, expected),
-    (message or "values should match")
-      .. "\nexpected: "
-      .. vim.inspect(expected)
-      .. "\nactual: "
-      .. vim.inspect(actual)
-  )
-end
-
-local function tempdir(name)
-  local path = vim.fn.tempname() .. "-" .. name
-  vim.fn.mkdir(path, "p")
-  return path
-end
-
-local function write_executable(path)
-  vim.fn.writefile({ "#!/bin/sh", "echo fake zorg" }, path)
-  vim.fn.setfperm(path, "rwxr-xr-x")
-end
-
-local function wait_for(predicate, message)
-  local ok = vim.wait(1000, predicate, 10)
-  assert(ok, message)
-end
+local test = dofile("tests/testlib.lua")
 
 local config = require("zorg.config")
 local commands = require("zorg.commands")
 local helpers = require("zorg.helpers")
 local mappings = require("zorg.mappings")
 
-local root = tempdir("zorg-root")
-local bin = tempdir("zorg-bin") .. "/zorg"
-write_executable(bin)
+local root = test.tempdir("zorg-root")
+local bin = test.tempdir("zorg-bin") .. "/zorg"
+test.write_executable(bin)
 
 config.setup({
   root = root,
@@ -46,15 +19,8 @@ config.setup({
   },
 })
 
-local runs = {}
-commands._set_runner_for_test(function(argv, on_result)
-  table.insert(runs, vim.deepcopy(argv))
-  on_result({
-    code = 0,
-    stdout = "",
-    stderr = "",
-  })
-end)
+local runner = test.fake_runner()
+commands._set_runner_for_test(runner.runner)
 commands.setup()
 
 local setup_config = require("zorg").setup({
@@ -66,7 +32,7 @@ local setup_config = require("zorg").setup({
   },
 })
 assert(setup_config.mappings.enabled == false, "mappings should be disabled by default")
-assert_eq(mappings._registered_for_test(), {}, "default setup should not install keymaps")
+test.assert_eq(mappings._registered_for_test(), {}, "default setup should not install keymaps")
 
 require("zorg").setup({
   root = root,
@@ -81,7 +47,7 @@ require("zorg").setup({
     enabled = false,
   },
 })
-assert_eq(
+test.assert_eq(
   mappings._registered_for_test(),
   { "<leader>xi", "<leader>xq", "<leader>xf", "<leader>xc", "<leader>xs" },
   "enabled mappings should use the configured prefix"
@@ -101,11 +67,11 @@ require("zorg").setup({
     enabled = false,
   },
 })
-assert_eq(mappings._registered_for_test(), {}, "disabled setup should clear managed mappings")
+test.assert_eq(mappings._registered_for_test(), {}, "disabled setup should clear managed mappings")
 assert(vim.fn.maparg("<leader>xq", "n") == "", "disabled setup should remove managed mappings")
 
 helpers.reindex_root()
-assert_eq(runs[#runs], {
+test.assert_last_argv(runner, {
   bin,
   "db",
   "reindex",
@@ -114,7 +80,7 @@ assert_eq(runs[#runs], {
 }, "reindex helper should delegate to ZorgIndex command logic")
 
 helpers.query("#z/todo -did:*")
-assert_eq(runs[#runs], {
+test.assert_last_argv(runner, {
   bin,
   "query",
   "--root",
@@ -127,8 +93,8 @@ vim.fn.writefile({ "%%% @note #z/ref", "Note", "%%%" }, note)
 vim.cmd("edit " .. vim.fn.fnameescape(note))
 vim.bo.filetype = "zorg"
 helpers.fix_current_buffer()
-assert_eq(
-  runs[#runs],
+test.assert_last_argv(
+  runner,
   { bin, "fix", "--root", root, note },
   "fix helper should use current-buffer fix with store options"
 )
@@ -146,12 +112,12 @@ vim.ui.input = function(opts, callback)
 end
 
 helpers.capture_prompt()
-assert_eq(
+test.assert_eq(
   prompts,
   { "Zorg template: ", "Zorg title: ", "Zorg body: " },
   "capture helper should prompt for template, title, and body"
 )
-assert_eq(runs[#runs], {
+test.assert_last_argv(runner, {
   bin,
   "capture",
   "--root",
@@ -168,8 +134,8 @@ assert_eq(runs[#runs], {
 answers = { "#z/query" }
 prompts = {}
 helpers.query_prompt()
-assert_eq(prompts, { "Zorg query: " }, "query helper should use vim.ui.input")
-assert_eq(runs[#runs], {
+test.assert_eq(prompts, { "Zorg query: " }, "query helper should use vim.ui.input")
+test.assert_last_argv(runner, {
   bin,
   "query",
   "--root",
@@ -179,12 +145,12 @@ assert_eq(runs[#runs], {
 
 vim.ui.input = original_ui_input
 
-assert_eq(
+test.assert_eq(
   commands.complete_query("--"),
   { "--db", "--help", "--id", "--root" },
   "query completion should return cheap known flags"
 )
-assert_eq(
+test.assert_eq(
   commands.complete_capture("--t"),
   { "--template", "--title" },
   "capture completion should filter known flags"
@@ -193,6 +159,6 @@ assert_eq(
 local file_matches = commands.complete_fix(note:sub(1, #note - 2))
 assert(#file_matches > 0, "fix completion should delegate non-flag args to file completion")
 
-wait_for(function()
+test.wait_for(function()
   return true
 end, "helpers test should finish")

@@ -141,6 +141,29 @@ such as `#z/todo -did:*` is not split into unrelated positional arguments.
 If the buffer is modified, write it first or use `:ZorgFix!` to write before
 running the fix command.
 
+## Rust Contract Notes
+
+Epic 15 features consume Rust-owned contracts only. Current stable Rust surfaces
+for Neovim are:
+
+- `zorg watch --root {root} [--db {db}] --format json`, which emits
+  line-delimited lifecycle objects with `schema_version`, `state`, `root`, and
+  `database`.
+- `zorg query --root {root} [--db {db}] --json`, including inline queries and
+  `--id @query/id`, with schema-versioned `list`, `table`, or `aggregate`
+  envelopes.
+- `zorg-ls` initialization options for `rootPath`, `databasePath`/`dbPath`,
+  `trace`, and `logLevel`; graph freshness remains a Rust/LSP responsibility.
+- `zorg path`/`zorg open`, `zorg promote`, `zorg move`, `zorg extract`,
+  `zorg import legacy`, and `zorg export markdown` JSON/text contracts when the
+  installed `zorg` binary provides those commands.
+
+zorg.nvim wrappers for watcher lifecycle, JSON query buffers, refactors,
+import, and export must shell out to those Rust contracts. If a user's local
+`zorg` binary lacks a command, the wrapper should report the feature as
+unavailable instead of parsing, rewriting, importing, or exporting Zorg data in
+Lua.
+
 ## Optional Helpers
 
 No global mappings are installed by default. To opt in to a small keymap set:
@@ -219,6 +242,7 @@ nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/smoke.lua -c "qa"
 nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/commands.lua -c "qa"
 nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/helpers.lua -c "qa"
 nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/lsp.lua -c "qa"
+nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/contracts.lua -c "qa"
 ```
 
 Optional local checks:

@@ -1,26 +1,5 @@
-vim.opt.runtimepath:prepend(vim.fn.getcwd())
+local test = dofile("tests/testlib.lua")
 vim.cmd("filetype plugin on")
-
-local function assert_eq(actual, expected, message)
-  assert(
-    vim.deep_equal(actual, expected),
-    (message or "values should match")
-      .. "\nexpected: "
-      .. vim.inspect(expected)
-      .. "\nactual: "
-      .. vim.inspect(actual)
-  )
-end
-
-local function write_executable(path, output)
-  vim.fn.writefile({ "#!/bin/sh", "echo " .. vim.fn.shellescape(output) }, path)
-  vim.fn.setfperm(path, "rwxr-xr-x")
-end
-
-local function wait_for(predicate, message)
-  local ok = vim.wait(1000, predicate, 10)
-  assert(ok, message)
-end
 
 local root = vim.fn.getcwd() .. "/.tests/root"
 local bin_dir = vim.fn.getcwd() .. "/.tests/bin"
@@ -30,8 +9,8 @@ vim.fn.writefile({}, root .. "/.zorgroot")
 
 local zorg = bin_dir .. "/zorg"
 local zorg_ls = bin_dir .. "/zorg-ls"
-write_executable(zorg, "zorg 0.1.0")
-write_executable(zorg_ls, "zorg-ls 0.1.0")
+test.write_executable(zorg, "zorg 0.1.0")
+test.write_executable(zorg_ls, "zorg-ls 0.1.0")
 
 local original_lsp_start = vim.lsp.start
 local captured_lsp_start = nil
@@ -62,19 +41,19 @@ assert(vim.bo.filetype == "zorg", "*.z buffers should use the zorg filetype")
 assert(vim.bo.commentstring == "# %s", "zorg ftplugin should set commentstring")
 assert(vim.bo.comments == ":#", "zorg ftplugin should set comments")
 assert(captured_lsp_start ~= nil, "zorg buffers should trigger LSP startup")
-assert_eq(captured_lsp_start.client_config.cmd, { zorg_ls }, "LSP should use configured command")
-assert_eq(captured_lsp_start.client_config.root_dir, root, "LSP should use detected root")
-assert_eq(
+test.assert_eq(captured_lsp_start.client_config.cmd, { zorg_ls }, "LSP should use configured command")
+test.assert_eq(captured_lsp_start.client_config.root_dir, root, "LSP should use detected root")
+test.assert_eq(
   captured_lsp_start.client_config.initialization_options.rootPath,
   root,
   "LSP rootPath should match detected root"
 )
-assert_eq(
+test.assert_eq(
   captured_lsp_start.client_config.initialization_options.databasePath,
   root .. "/.zorg/zorg.sqlite3",
   "LSP databasePath should come from setup"
 )
-assert_eq(
+test.assert_eq(
   captured_lsp_start.client_config.initialization_options.trace,
   "messages",
   "LSP trace should come from setup"
@@ -100,49 +79,43 @@ for _, command in ipairs({ "ZorgIndex", "ZorgQuery", "ZorgFix", "ZorgCapture" })
 end
 
 local commands = require("zorg.commands")
-local runs = {}
-local next_result = {
+local runner = test.fake_runner({
   code = 0,
   stdout = "",
   stderr = "",
-}
-commands._set_runner_for_test(function(argv, on_result)
-  table.insert(runs, vim.deepcopy(argv))
-  on_result(next_result)
-end)
+})
+commands._set_runner_for_test(runner.runner)
 
 vim.cmd("ZorgIndex")
-assert_eq(
-  runs[#runs],
+test.assert_last_argv(
+  runner,
   { zorg, "db", "reindex", "--root", root, "--db", root .. "/.zorg/zorg.sqlite3" },
   "ZorgIndex argv should match the Rust CLI"
 )
 
-next_result = {
+runner.result = {
   code = 0,
   stdout = "[ ] @task  sample.z  Task",
   stderr = "",
 }
 vim.cmd("ZorgQuery #z/todo -did:*")
-assert_eq(
-  runs[#runs],
+test.assert_last_argv(
+  runner,
   { zorg, "query", "--root", root, "--db", root .. "/.zorg/zorg.sqlite3", "#z/todo -did:*" },
   "ZorgQuery should preserve inline SWOG as one argument"
 )
-wait_for(function()
-  return vim.api.nvim_buf_get_name(0):match("Zorg Query Results") ~= nil
-end, "ZorgQuery should open query output")
+test.wait_for_current_buffer_name("Zorg Query Results", "ZorgQuery should open query output")
 
 vim.cmd("edit " .. vim.fn.fnameescape(root .. "/sample.z"))
 vim.bo.filetype = "zorg"
 vim.cmd("ZorgFix")
-assert_eq(
-  runs[#runs],
+test.assert_last_argv(
+  runner,
   { zorg, "fix", "--root", root, "--db", root .. "/.zorg/zorg.sqlite3", root .. "/sample.z" },
   "ZorgFix should pass root and current buffer path"
 )
 
-next_result = {
+runner.result = {
   code = 0,
   stdout = vim.json.encode({
     destination = root .. "/captured.z",
@@ -152,7 +125,7 @@ next_result = {
 }
 vim.fn.writefile({ "%%% @captured #z/ref", "Captured", "%%%" }, root .. "/captured.z")
 vim.cmd("ZorgCapture --template @templates/todo --title Task")
-assert_eq(runs[#runs], {
+test.assert_last_argv(runner, {
   zorg,
   "capture",
   "--root",
@@ -165,7 +138,7 @@ assert_eq(runs[#runs], {
   "--title",
   "Task",
 }, "ZorgCapture should request JSON and pass store options")
-wait_for(function()
+test.wait_for(function()
   return vim.api.nvim_buf_get_name(0) == root .. "/captured.z"
 end, "ZorgCapture should open the captured file from JSON output")
 

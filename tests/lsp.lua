@@ -1,32 +1,9 @@
-vim.opt.runtimepath:prepend(vim.fn.getcwd())
-
-local function assert_eq(actual, expected, message)
-  assert(
-    actual == expected,
-    (message or "values should match")
-      .. "\nexpected: "
-      .. vim.inspect(expected)
-      .. "\nactual: "
-      .. vim.inspect(actual)
-  )
-end
-
-local function tempdir(name)
-  local path = vim.fn.tempname() .. "-" .. name
-  vim.fn.mkdir(path, "p")
-  return path
-end
-
-local function write_executable(path)
-  vim.fn.writefile({ "#!/bin/sh", "echo zorg-ls test" }, path)
-  vim.fn.setfperm(path, "rwxr-xr-x")
-end
+local test = dofile("tests/testlib.lua")
 
 local config = require("zorg.config")
 local lsp = require("zorg.lsp")
 
 local original_lsp_start = vim.lsp.start
-local original_notify = vim.notify
 
 local captured_start = nil
 local start_count = 0
@@ -39,22 +16,19 @@ vim.lsp.start = function(client_config, start_opts)
   return 42
 end
 
-local notifications = {}
-vim.notify = function(message, level)
-  table.insert(notifications, { message = message, level = level })
-end
+local notifications, restore_notify = test.capture_notifications()
 
-local root = tempdir("zorg-root")
+local root = test.tempdir("zorg-root")
 local nested = root .. "/notes/deep"
 vim.fn.mkdir(nested, "p")
 vim.fn.writefile({}, root .. "/.zorgroot")
 local note_path = nested .. "/note.z"
 vim.fn.writefile({ "%%% @note #z/ref", "Note", "%%%" }, note_path)
 
-local fallback_root = tempdir("zorg-fallback")
-local database_path = tempdir("zorg-db") .. "/zorg.sqlite3"
-local fake_ls = tempdir("zorg-bin") .. "/zorg-ls"
-write_executable(fake_ls)
+local fallback_root = test.tempdir("zorg-fallback")
+local database_path = test.tempdir("zorg-db") .. "/zorg.sqlite3"
+local fake_ls = test.tempdir("zorg-bin") .. "/zorg-ls"
+test.write_executable(fake_ls, "zorg-ls test")
 
 config.setup({
   root = fallback_root,
@@ -76,31 +50,31 @@ vim.bo.filetype = "zorg"
 local bufnr = vim.api.nvim_get_current_buf()
 
 local started = lsp.start(bufnr)
-assert_eq(started, 42, "start should return the vim.lsp.start result")
-assert_eq(start_count, 1, "start should call vim.lsp.start once")
-assert_eq(captured_start.client_config.name, "zorg-ls", "client name should be zorg-ls")
-assert_eq(
+test.assert_eq(started, 42, "start should return the vim.lsp.start result")
+test.assert_eq(start_count, 1, "start should call vim.lsp.start once")
+test.assert_eq(captured_start.client_config.name, "zorg-ls", "client name should be zorg-ls")
+test.assert_eq(
   captured_start.client_config.cmd[1],
   fake_ls,
   "client command should use configured binary"
 )
-assert_eq(
+test.assert_eq(
   captured_start.client_config.cmd[2],
   "--stdio",
   "client command should preserve extra args"
 )
-assert_eq(captured_start.client_config.root_dir, root, "root should resolve from .zorgroot")
-assert_eq(
+test.assert_eq(captured_start.client_config.root_dir, root, "root should resolve from .zorgroot")
+test.assert_eq(
   captured_start.client_config.initialization_options.rootPath,
   root,
   "rootPath should match resolved root"
 )
-assert_eq(
+test.assert_eq(
   captured_start.client_config.initialization_options.databasePath,
   database_path,
   "databasePath should be passed"
 )
-assert_eq(
+test.assert_eq(
   captured_start.client_config.initialization_options.trace,
   "messages",
   "trace should be passed"
@@ -125,14 +99,14 @@ assert(
   "other clients should not be reused"
 )
 
-local init_root = tempdir("zorg-init-root")
+local init_root = test.tempdir("zorg-init-root")
 vim.fn.mkdir(init_root .. "/child", "p")
 vim.fn.writefile({}, init_root .. "/init.z")
 local init_note = init_root .. "/child/note.z"
 vim.fn.writefile({ "%%% @init/note #z/ref", "Note", "%%%" }, init_note)
 vim.cmd("edit " .. vim.fn.fnameescape(init_note))
 vim.bo.filetype = "zorg"
-assert_eq(
+test.assert_eq(
   lsp.root_dir(vim.api.nvim_get_current_buf()),
   init_root,
   "init.z should act as a corpus marker"
@@ -173,4 +147,4 @@ end
 assert(found, "setup should install a FileType zorg autocmd")
 
 vim.lsp.start = original_lsp_start
-vim.notify = original_notify
+restore_notify()
