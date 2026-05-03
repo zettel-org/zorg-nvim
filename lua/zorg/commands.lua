@@ -5,6 +5,47 @@ local M = {}
 local test_runner = nil
 local scratch_counter = 0
 
+local completions = {
+  capture = {
+    "--allow-outside",
+    "--body",
+    "--db",
+    "--dest",
+    "--format",
+    "--help",
+    "--id",
+    "--json",
+    "--root",
+    "--source",
+    "--template",
+    "--title",
+  },
+  fix = {
+    "--check",
+    "--db",
+    "--format",
+    "--help",
+    "--json",
+    "--root",
+  },
+  index = {
+    "--db",
+    "--help",
+    "--root",
+  },
+  query = {
+    "--db",
+    "--help",
+    "--id",
+    "--root",
+  },
+  status = {
+    "--db",
+    "--help",
+    "--root",
+  },
+}
+
 local function schedule(fn)
   if vim.in_fast_event and vim.in_fast_event() then
     vim.schedule(fn)
@@ -214,6 +255,10 @@ end
 local function build_query_args(command_opts)
   local raw = vim.trim(command_opts.args or "")
 
+  if raw == "" then
+    return {}
+  end
+
   if vim.startswith(raw, "--id") then
     return command_opts.fargs
   end
@@ -337,31 +382,72 @@ end
 
 function M.setup()
   vim.api.nvim_create_user_command("ZorgIndex", M.index, {
+    complete = M.complete_index,
     desc = "Reindex the configured Zorg root",
     nargs = "*",
     force = true,
   })
   vim.api.nvim_create_user_command("ZorgStatus", M.status, {
+    complete = M.complete_status,
     desc = "Show Zorg database status",
     nargs = "*",
     force = true,
   })
   vim.api.nvim_create_user_command("ZorgQuery", M.query, {
+    complete = M.complete_query,
     desc = "Run a Zorg LIST query",
     nargs = "*",
     force = true,
   })
   vim.api.nvim_create_user_command("ZorgFix", M.fix, {
     bang = true,
+    complete = M.complete_fix,
     desc = "Run Zorg safe fixes",
     nargs = "*",
     force = true,
   })
   vim.api.nvim_create_user_command("ZorgCapture", M.capture, {
+    complete = M.complete_capture,
     desc = "Capture a zettel through the Zorg CLI",
     nargs = "*",
     force = true,
   })
+end
+
+function M.complete_flags(name, arglead)
+  local matches = {}
+
+  for _, candidate in ipairs(completions[name] or {}) do
+    if vim.startswith(candidate, arglead or "") then
+      table.insert(matches, candidate)
+    end
+  end
+
+  return matches
+end
+
+function M.complete_index(arglead)
+  return M.complete_flags("index", arglead)
+end
+
+function M.complete_status(arglead)
+  return M.complete_flags("status", arglead)
+end
+
+function M.complete_query(arglead)
+  return M.complete_flags("query", arglead)
+end
+
+function M.complete_capture(arglead)
+  return M.complete_flags("capture", arglead)
+end
+
+function M.complete_fix(arglead)
+  if vim.startswith(arglead or "", "-") then
+    return M.complete_flags("fix", arglead)
+  end
+
+  return vim.fn.getcompletion(arglead or "", "file")
 end
 
 function M._set_runner_for_test(runner)

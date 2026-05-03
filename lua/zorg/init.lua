@@ -11,6 +11,8 @@ function M.setup(opts)
     require("zorg.commands").setup()
   end
 
+  require("zorg.mappings").setup(config.mappings)
+
   if config.lsp.enabled then
     require("zorg.lsp").setup(config.lsp)
   end

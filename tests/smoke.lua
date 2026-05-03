@@ -32,3 +32,5 @@ end
 for _, command in ipairs({ "ZorgIndex", "ZorgQuery", "ZorgFix", "ZorgCapture" }) do
   assert(vim.fn.exists(":" .. command) == 2, command .. " should exist")
 end
+
+assert(vim.fn.maparg("<leader>zq", "n") == "", "setup should not install mappings by default")

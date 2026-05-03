@@ -12,6 +12,17 @@ local defaults = {
   commands = {
     enabled = true,
   },
+  mappings = {
+    enabled = false,
+    prefix = "<leader>z",
+    keys = {
+      capture = "c",
+      fix = "f",
+      index = "i",
+      query = "q",
+      status = "s",
+    },
+  },
   lsp = {
     enabled = true,
     command = { "zorg-ls" },
