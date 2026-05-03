@@ -228,6 +228,13 @@ stylua --check .
 luacheck lua tests filetype.lua plugin ftplugin
 ```
 
+To validate the full Zorg MVP across the Rust, Tree-sitter, and Neovim sibling
+repositories, run the Rust-root gate from `../zorg`:
+
+```sh
+../zorg/tools/validate_cross_repo.sh
+```
+
 Help tags can be generated with:
 
 ```vim
