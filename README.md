@@ -82,6 +82,17 @@ require("zorg").setup({
   commands = {
     enabled = true,
   },
+  mappings = {
+    enabled = false,
+    prefix = "<leader>z",
+    keys = {
+      capture = "c",
+      fix = "f",
+      index = "i",
+      query = "q",
+      status = "s",
+    },
+  },
   lsp = {
     enabled = true,
     command = { "zorg-ls" },
@@ -129,6 +140,24 @@ such as `#z/todo -did:*` is not split into unrelated positional arguments.
 `:ZorgFix` defaults to the current `.z` buffer when no file argument is given.
 If the buffer is modified, write it first or use `:ZorgFix!` to write before
 running the fix command.
+
+## Optional Helpers
+
+No global mappings are installed by default. To opt in to a small keymap set:
+
+```lua
+require("zorg").setup({
+  mappings = {
+    enabled = true,
+    prefix = "<leader>z",
+  },
+})
+```
+
+The mappings call thin Lua helpers for query prompts, capture prompts, fixing
+the current buffer, reindexing the configured root, and showing database
+status. Those helpers delegate to the same command runner as the `:Zorg*`
+commands and do not parse Zorg data in Lua.
 
 ## LSP
 

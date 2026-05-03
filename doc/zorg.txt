@@ -6,10 +6,11 @@ CONTENTS                                                        *zorg-contents*
 1. Introduction                                      |zorg-introduction|
 2. Setup                                             |zorg-setup|
 3. Commands                                          |zorg-commands|
-4. LSP                                               |zorg-lsp|
-5. Tree-sitter                                       |zorg-treesitter|
-6. Health                                            |zorg-health|
-7. Development                                       |zorg-development|
+4. Optional Helpers                                  |zorg-helpers|
+5. LSP                                               |zorg-lsp|
+6. Tree-sitter                                       |zorg-treesitter|
+7. Health                                            |zorg-health|
+8. Development                                       |zorg-development|
 
 ==============================================================================
 INTRODUCTION                                                *zorg-introduction*
@@ -52,6 +53,20 @@ Default options:
     log_level = nil,
     cli = {
       command = "zorg",
+    },
+    commands = {
+      enabled = true,
+    },
+    mappings = {
+      enabled = false,
+      prefix = "<leader>z",
+      keys = {
+        capture = "c",
+        fix = "f",
+        index = "i",
+        query = "q",
+        status = "s",
+      },
     },
     lsp = {
       enabled = true,
@@ -107,6 +122,24 @@ is sent as one SWOG query. Stored query zettel may be run with:
 `:ZorgFix` defaults to the current `.z` buffer when no file argument is given.
 If that buffer is modified, write it first or use `:ZorgFix!` to write before
 running the fix command.
+
+==============================================================================
+OPTIONAL HELPERS                                          *zorg-helpers*
+
+No global mappings are installed by default. To opt in to a small keymap set:
+>
+  require("zorg").setup({
+    mappings = {
+      enabled = true,
+      prefix = "<leader>z",
+    },
+  })
+<
+
+The mappings call thin Lua helpers for query prompts, capture prompts, fixing
+the current buffer, reindexing the configured root, and showing database
+status. Those helpers delegate to the same command runner as the `:Zorg*`
+commands and do not parse Zorg data in Lua.
 
 ==============================================================================
 LSP                                                                *zorg-lsp*
