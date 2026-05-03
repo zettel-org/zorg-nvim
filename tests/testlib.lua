@@ -64,7 +64,11 @@ function M.fake_runner(initial_result)
 
   state.runner = function(argv, on_result)
     table.insert(state.runs, vim.deepcopy(argv))
-    on_result(vim.deepcopy(state.result))
+    if type(state.result) == "function" then
+      on_result(vim.deepcopy(state.result(argv, state)))
+    else
+      on_result(vim.deepcopy(state.result))
+    end
   end
 
   return state
@@ -156,6 +160,21 @@ function M.fixtures.ndjson(events)
   end
 
   return table.concat(lines, "\n")
+end
+
+function M.fixtures.refactor_preview(operation, files, extra)
+  return vim.tbl_extend("force", {
+    schema_version = 1,
+    plan = vim.tbl_extend("force", {
+      operation = operation,
+      mode = "preview",
+      root = "/tmp/zorg",
+      target_id = "task",
+      warnings = {},
+      rejections = {},
+      files = files or {},
+    }, extra or {}),
+  }, {})
 end
 
 return M

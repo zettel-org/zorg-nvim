@@ -41,6 +41,36 @@ local completions = {
     "--json",
     "--root",
   },
+  move = {
+    "--db",
+    "--format",
+    "--help",
+    "--json",
+    "--root",
+    "--to",
+  },
+  open = {
+    "--db",
+    "--format",
+    "--help",
+    "--json",
+    "--root",
+  },
+  path = {
+    "--db",
+    "--format",
+    "--help",
+    "--json",
+    "--root",
+  },
+  promote = {
+    "--db",
+    "--format",
+    "--help",
+    "--json",
+    "--root",
+    "--to",
+  },
   index = {
     "--db",
     "--help",
@@ -67,6 +97,16 @@ local completions = {
     "--id",
     "--json",
     "--root",
+  },
+  extract = {
+    "--db",
+    "--format",
+    "--help",
+    "--id",
+    "--json",
+    "--replace-with-link",
+    "--root",
+    "--to",
   },
   status = {
     "--db",
@@ -147,7 +187,7 @@ local function open_scratch_lines(title, lines, filetype)
     vim.bo[buffer].filetype = filetype
   end
 
-  vim.cmd("botright split")
+  pcall(vim.cmd, "botright split")
   vim.api.nvim_win_set_buf(0, buffer)
   return buffer
 end
@@ -224,7 +264,11 @@ end
 
 local function fail(command_name, result)
   local output = result_output(result)
-  local message = "Zorg " .. command_name .. " failed"
+  local unavailable = output:match("unknown zorg command")
+    or output:match("unsupported import")
+    or output:match("unsupported export")
+  local message = unavailable and ("Zorg " .. command_name .. " is unavailable in this zorg binary")
+    or ("Zorg " .. command_name .. " failed")
   if result.code then
     message = message .. " (exit " .. result.code .. ")"
   end
@@ -275,6 +319,10 @@ local function store_command_argv(parts, extra)
   return argv
 end
 
+local function root_args(opts)
+  return { "--root", opts.root }
+end
+
 local function display_text_result(command_name, result)
   local output = result_output(result)
   if output == "" then
@@ -301,6 +349,227 @@ local function decode_json_result(command_name, result)
     open_scratch("Zorg " .. command_name .. " Output", output, "zorg-output")
   end
   return nil
+end
+
+local function has_flag(args, flag)
+  for _, arg in ipairs(args) do
+    if arg == flag then
+      return true
+    end
+  end
+
+  return false
+end
+
+local function force_json_args(args)
+  local filtered = {}
+  local skip_next = false
+
+  for _, arg in ipairs(args) do
+    if skip_next then
+      skip_next = false
+    elseif arg == "--format" then
+      skip_next = true
+    elseif arg ~= "--json" then
+      table.insert(filtered, arg)
+    end
+  end
+
+  vim.list_extend(filtered, { "--format", "json" })
+  return filtered
+end
+
+local function current_zorg_path_for(command_name, command_opts)
+  local buffer = vim.api.nvim_get_current_buf()
+  local path = vim.api.nvim_buf_get_name(buffer)
+
+  if path == "" or vim.fn.fnamemodify(path, ":e") ~= "z" then
+    notify(":Zorg" .. command_name .. " needs a .z buffer or explicit file arguments", vim.log.levels.ERROR)
+    return nil
+  end
+
+  if vim.bo[buffer].modified then
+    if not command_opts.bang then
+      notify(
+        "Write the buffer before :Zorg" .. command_name .. ", or use :Zorg" .. command_name .. "! to write first",
+        vim.log.levels.ERROR
+      )
+      return nil
+    end
+
+    vim.cmd("write")
+  end
+
+  return path
+end
+
+local function jump_to_location(command_name, result)
+  local location = decode_json_result(command_name, result)
+  if not location then
+    return
+  end
+
+  local path = location.absolute_path
+  if type(path) ~= "string" or path == "" then
+    notify("Zorg " .. command_name .. " JSON did not include an absolute_path", vim.log.levels.ERROR)
+    return
+  end
+
+  vim.cmd("edit " .. vim.fn.fnameescape(path))
+
+  local span = location.source_span or {}
+  local line = math.max(tonumber(span.start_line) or 1, 1)
+  local column = math.max((tonumber(span.start_column) or 1) - 1, 0)
+  pcall(vim.api.nvim_win_set_cursor, 0, { line, column })
+end
+
+local function open_location_command(cli_command, command_name, command_opts)
+  if #command_opts.fargs == 0 then
+    notify(":Zorg" .. command_name .. " requires a zettel ID", vim.log.levels.ERROR)
+    return
+  end
+
+  local argv = store_command_argv({ cli_command }, force_json_args(command_opts.fargs))
+  run_cli(command_name, argv, function(result)
+    jump_to_location(command_name, result)
+  end)
+end
+
+local function refactor_preview(command_name, result)
+  local preview = decode_json_result(command_name, result)
+  if not preview then
+    return nil
+  end
+
+  if preview.schema_version ~= 1 or type(preview.plan) ~= "table" then
+    notify("Zorg " .. command_name .. " returned an unsupported preview schema", vim.log.levels.ERROR)
+    return nil
+  end
+
+  open_scratch("Zorg " .. command_name .. " Preview", vim.trim(result.stdout or ""), "json")
+  return preview
+end
+
+local function refresh_refactor_buffers(preview)
+  local paths = {}
+  local files = preview.plan and preview.plan.files or {}
+
+  for _, file in ipairs(files) do
+    if type(file.absolute_path) == "string" then
+      paths[file.absolute_path] = true
+    end
+  end
+
+  for _, buffer in ipairs(vim.api.nvim_list_bufs()) do
+    local name = vim.api.nvim_buf_get_name(buffer)
+    if paths[name] and vim.api.nvim_buf_is_loaded(buffer) and not vim.bo[buffer].modified then
+      vim.api.nvim_buf_call(buffer, function()
+        vim.cmd("silent! checktime")
+      end)
+    end
+  end
+end
+
+local function reindex_after_refactor(command_name)
+  local argv = store_command_argv({ "db", "reindex" }, {})
+  run_cli(command_name .. " Reindex", argv, function()
+    notify("Zorg " .. command_name .. " applied and reindexed")
+  end)
+end
+
+local function run_refactor_write(command_name, cli_command, command_opts, preview)
+  local args = force_json_args(command_opts.fargs)
+  table.insert(args, "--write")
+
+  local argv = store_command_argv({ cli_command }, args)
+  run_cli(command_name, argv, function()
+    refresh_refactor_buffers(preview)
+    reindex_after_refactor(command_name)
+  end)
+end
+
+local function confirm_refactor_write(command_name, cli_command, command_opts, preview)
+  vim.ui.select({ "Apply", "Cancel" }, {
+    prompt = "Apply Zorg " .. command_name .. " changes?",
+  }, function(choice)
+    if choice ~= "Apply" then
+      notify("Zorg " .. command_name .. " cancelled")
+      return
+    end
+
+    run_refactor_write(command_name, cli_command, command_opts, preview)
+  end)
+end
+
+local function run_refactor_preview(command_name, cli_command, command_opts)
+  if has_flag(command_opts.fargs, "--write") then
+    notify(":Zorg" .. command_name .. " runs --write only after preview confirmation", vim.log.levels.ERROR)
+    return
+  end
+
+  local argv = store_command_argv({ cli_command }, force_json_args(command_opts.fargs))
+  run_cli(command_name, argv, function(result)
+    local preview = refactor_preview(command_name, result)
+    if preview then
+      confirm_refactor_write(command_name, cli_command, command_opts, preview)
+    end
+  end)
+end
+
+local function command_line_range(command_opts)
+  if not command_opts.range or command_opts.range == 0 then
+    return nil
+  end
+
+  local line1 = command_opts.line1
+  local line2 = command_opts.line2
+  local start_column = 1
+  local end_line_text = vim.api.nvim_buf_get_lines(0, line2 - 1, line2, false)[1] or ""
+  local end_column = #end_line_text + 1
+
+  local visual_start = vim.fn.getpos("'<")
+  local visual_end = vim.fn.getpos("'>")
+  if visual_start[2] == line1 and visual_end[2] == line2 then
+    start_column = math.max(visual_start[3], 1)
+    end_column = math.max(visual_end[3], 1)
+  end
+
+  if line2 < line1 or (line1 == line2 and end_column < start_column) then
+    line1, line2 = line2, line1
+    start_column, end_column = end_column, start_column
+  end
+
+  return string.format("%d:%d-%d:%d", line1, start_column, line2, end_column)
+end
+
+local function build_extract_args(command_opts)
+  local path = current_zorg_path_for("Extract", command_opts)
+  if not path then
+    return nil
+  end
+
+  local range = command_line_range(command_opts)
+  if not range then
+    notify(":ZorgExtract must be run with a visual or line range", vim.log.levels.ERROR)
+    return nil
+  end
+
+  local args = vim.deepcopy(command_opts.fargs)
+  local extract_id = nil
+  if not has_flag(args, "--id") then
+    extract_id = table.remove(args, 1)
+    if not extract_id or extract_id == "" or vim.startswith(extract_id, "-") then
+      notify(":ZorgExtract requires a new zettel ID or --id @new/id", vim.log.levels.ERROR)
+      return nil
+    end
+  end
+
+  local built = { "--file", path, "--range", range }
+  if extract_id then
+    vim.list_extend(built, { "--id", extract_id })
+  end
+  vim.list_extend(built, args)
+  return built
 end
 
 local function append_section(lines, title, entries)
@@ -337,6 +606,7 @@ local function bridge_diagnostic_line(diagnostic)
   if diagnostic.line then
     location = location .. ":" .. tostring(diagnostic.line)
   end
+
   local prefix = vim.trim(table.concat(vim.tbl_filter(function(value)
     return value and value ~= ""
   end, {
@@ -358,6 +628,7 @@ local function render_import_report(report)
     report.command or "import legacy",
     summary_line(report.summary),
   }
+
   local writes = {}
   for _, output in ipairs(report.outputs or {}) do
     table.insert(
@@ -391,11 +662,13 @@ local function render_import_report(report)
       table.insert(errors, rendered)
     end
   end
+
   for _, output in ipairs(report.outputs or {}) do
     for _, loss in ipairs(output.lossiness or {}) do
       table.insert(lossy, (output.root_relative_path or "(unknown)") .. ": " .. tostring(loss))
     end
   end
+
   for _, collision in ipairs(report.collisions or {}) do
     table.insert(errors, "collision: " .. vim.inspect(collision))
   end
@@ -422,7 +695,7 @@ local function render_import_report(report)
     append_section(lines, "Write Results", results)
   end
 
-  return lines
+  return table.concat(lines, "\n")
 end
 
 local function render_export_report(report)
@@ -430,6 +703,7 @@ local function render_export_report(report)
     report.command or "export markdown",
     summary_line(report.summary),
   }
+
   if report.output then
     if report.output.mode == "directory" then
       table.insert(lines, "Output directory: " .. tostring(report.output.directory))
@@ -461,7 +735,7 @@ local function render_export_report(report)
   end
   append_section(lines, "Diagnostics", diagnostics)
 
-  return lines
+  return table.concat(lines, "\n")
 end
 
 local function has_query_output_flag(args)
@@ -813,27 +1087,7 @@ local function render_query_json(result)
 end
 
 local function current_zorg_path(command_opts)
-  local buffer = vim.api.nvim_get_current_buf()
-  local path = vim.api.nvim_buf_get_name(buffer)
-
-  if path == "" or vim.fn.fnamemodify(path, ":e") ~= "z" then
-    notify(":ZorgFix needs a .z buffer or explicit file arguments", vim.log.levels.ERROR)
-    return nil
-  end
-
-  if vim.bo[buffer].modified then
-    if not command_opts.bang then
-      notify(
-        "Write the buffer before :ZorgFix, or use :ZorgFix! to write first",
-        vim.log.levels.ERROR
-      )
-      return nil
-    end
-
-    vim.cmd("write")
-  end
-
-  return path
+  return current_zorg_path_for("Fix", command_opts)
 end
 
 local function build_fix_args(command_opts)
@@ -860,6 +1114,68 @@ local function parse_capture_result(result)
   end
 
   return decoded
+end
+
+local function current_zettel_id()
+  local buffer = vim.api.nvim_get_current_buf()
+  local path = vim.api.nvim_buf_get_name(buffer)
+
+  if path == "" or vim.fn.fnamemodify(path, ":e") ~= "z" then
+    notify(":ZorgExportCurrent needs a .z buffer", vim.log.levels.ERROR)
+    return nil
+  end
+
+  local line_count = vim.api.nvim_buf_line_count(buffer)
+  local lines = vim.api.nvim_buf_get_lines(buffer, 0, math.min(20, line_count), false)
+  for _, line in ipairs(lines) do
+    local id = line:match("^%%+%s+(@%S+)")
+    if id then
+      return id
+    end
+  end
+
+  notify(":ZorgExportCurrent could not find a canonical @id in the current buffer", vim.log.levels.ERROR)
+  return nil
+end
+
+local function run_import(command_name, mode, command_opts)
+  local opts = config.get()
+  local args = vim.deepcopy(command_opts.fargs)
+  if not has_json_format(args) then
+    table.insert(args, 1, "--json")
+  end
+
+  local argv = command_argv({ "import", "legacy", mode })
+  vim.list_extend(argv, root_args(opts))
+  vim.list_extend(argv, args)
+
+  run_cli(command_name, argv, function(result)
+    local report = decode_json_result(command_name, result)
+    if report then
+      open_scratch("Zorg " .. command_name, render_import_report(report), "zorg-output")
+    end
+  end)
+end
+
+local function run_export(command_name, args)
+  local argv = store_command_argv({ "export", "markdown" }, args)
+  run_cli(command_name, argv, function(result)
+    local output = vim.trim(result.stdout or "")
+    if output == "" then
+      notify("Zorg " .. command_name .. " completed")
+      return
+    end
+
+    if output:sub(1, 1) == "{" then
+      local report = decode_json_result(command_name, result)
+      if report then
+        open_scratch("Zorg " .. command_name, render_export_report(report), "zorg-output")
+      end
+      return
+    end
+
+    open_scratch("Zorg " .. command_name, output, "markdown")
+  end)
 end
 
 function M.index(command_opts)
@@ -956,6 +1272,101 @@ function M.capture(command_opts)
   end)
 end
 
+function M.path(command_opts)
+  open_location_command("path", "Path", command_opts)
+end
+
+function M.open(command_opts)
+  open_location_command("open", "Open", command_opts)
+end
+
+function M.promote(command_opts)
+  run_refactor_preview("Promote", "promote", command_opts)
+end
+
+function M.move(command_opts)
+  run_refactor_preview("Move", "move", command_opts)
+end
+
+function M.extract(command_opts)
+  local args = build_extract_args(command_opts)
+  if not args then
+    return
+  end
+
+  run_refactor_preview(
+    "Extract",
+    "extract",
+    vim.tbl_extend("force", command_opts, { fargs = args })
+  )
+end
+
+function M.import_plan(command_opts)
+  run_import("ImportPlan", "plan", command_opts)
+end
+
+function M.import_apply(command_opts)
+  local function apply()
+    run_import("ImportApply", "apply", command_opts)
+  end
+
+  if command_opts.bang then
+    apply()
+    return
+  end
+
+  vim.ui.select({ "Apply", "Cancel" }, { prompt = "Apply legacy Zorg import plan?" }, function(choice)
+    if choice == "Apply" then
+      apply()
+    else
+      notify("Zorg ImportApply cancelled")
+    end
+  end)
+end
+
+function M.export_markdown(command_opts)
+  run_export("ExportMarkdown", vim.deepcopy(command_opts.fargs))
+end
+
+function M.export_current(command_opts)
+  local id = current_zettel_id()
+  if not id then
+    return
+  end
+
+  local args = { "--id", id }
+  vim.list_extend(args, command_opts.fargs)
+  run_export("ExportCurrent", args)
+end
+
+function M.export_subtree(command_opts)
+  if #command_opts.fargs == 0 then
+    notify(":ZorgExportSubtree needs a root @id", vim.log.levels.ERROR)
+    return
+  end
+
+  local args = { "--subtree", command_opts.fargs[1] }
+  for index = 2, #command_opts.fargs do
+    table.insert(args, command_opts.fargs[index])
+  end
+  run_export("ExportSubtree", args)
+end
+
+function M.export_query(command_opts)
+  local raw = vim.trim(command_opts.args or "")
+  if raw == "" then
+    notify(":ZorgExportQuery needs inline SWOG text or --query-id @id", vim.log.levels.ERROR)
+    return
+  end
+
+  if vim.startswith(raw, "--query-id") then
+    run_export("ExportQuery", command_opts.fargs)
+    return
+  end
+
+  run_export("ExportQuery", { "--query", raw })
+end
+
 function M.setup()
   vim.api.nvim_create_user_command("ZorgIndex", M.index, {
     complete = M.complete_index,
@@ -985,6 +1396,75 @@ function M.setup()
   vim.api.nvim_create_user_command("ZorgCapture", M.capture, {
     complete = M.complete_capture,
     desc = "Capture a zettel through the Zorg CLI",
+    nargs = "*",
+    force = true,
+  })
+  vim.api.nvim_create_user_command("ZorgPath", M.path, {
+    complete = M.complete_path,
+    desc = "Open the source location for a Zorg zettel ID",
+    nargs = "+",
+    force = true,
+  })
+  vim.api.nvim_create_user_command("ZorgOpen", M.open, {
+    complete = M.complete_open,
+    desc = "Open the source location for a Zorg zettel ID",
+    nargs = "+",
+    force = true,
+  })
+  vim.api.nvim_create_user_command("ZorgPromote", M.promote, {
+    complete = M.complete_promote,
+    desc = "Preview and apply a Zorg promote refactor",
+    nargs = "+",
+    force = true,
+  })
+  vim.api.nvim_create_user_command("ZorgMove", M.move, {
+    complete = M.complete_move,
+    desc = "Preview and apply a Zorg move refactor",
+    nargs = "+",
+    force = true,
+  })
+  vim.api.nvim_create_user_command("ZorgExtract", M.extract, {
+    bang = true,
+    complete = M.complete_extract,
+    desc = "Preview and apply a Zorg extract refactor from a selected range",
+    nargs = "*",
+    range = true,
+    force = true,
+  })
+  vim.api.nvim_create_user_command("ZorgImportPlan", M.import_plan, {
+    complete = M.complete_import_plan,
+    desc = "Preview a legacy Zorg import plan",
+    nargs = "*",
+    force = true,
+  })
+  vim.api.nvim_create_user_command("ZorgImportApply", M.import_apply, {
+    bang = true,
+    complete = M.complete_import_apply,
+    desc = "Apply a legacy Zorg import plan after confirmation",
+    nargs = "*",
+    force = true,
+  })
+  vim.api.nvim_create_user_command("ZorgExportMarkdown", M.export_markdown, {
+    complete = M.complete_export_markdown,
+    desc = "Run zorg export markdown with explicit selectors",
+    nargs = "*",
+    force = true,
+  })
+  vim.api.nvim_create_user_command("ZorgExportCurrent", M.export_current, {
+    complete = M.complete_export_markdown,
+    desc = "Export the current zettel to Markdown",
+    nargs = "*",
+    force = true,
+  })
+  vim.api.nvim_create_user_command("ZorgExportSubtree", M.export_subtree, {
+    complete = M.complete_export_markdown,
+    desc = "Export a zettel subtree to Markdown",
+    nargs = "*",
+    force = true,
+  })
+  vim.api.nvim_create_user_command("ZorgExportQuery", M.export_query, {
+    complete = M.complete_export_markdown,
+    desc = "Export Markdown for an inline query or query zettel",
     nargs = "*",
     force = true,
   })
@@ -1021,6 +1501,50 @@ end
 function M.complete_fix(arglead)
   if vim.startswith(arglead or "", "-") then
     return M.complete_flags("fix", arglead)
+  end
+
+  return vim.fn.getcompletion(arglead or "", "file")
+end
+
+function M.complete_path(arglead)
+  return M.complete_flags("path", arglead)
+end
+
+function M.complete_open(arglead)
+  return M.complete_flags("open", arglead)
+end
+
+function M.complete_promote(arglead)
+  return M.complete_flags("promote", arglead)
+end
+
+function M.complete_move(arglead)
+  return M.complete_flags("move", arglead)
+end
+
+function M.complete_extract(arglead)
+  return M.complete_flags("extract", arglead)
+end
+
+function M.complete_import_plan(arglead)
+  if vim.startswith(arglead or "", "-") then
+    return M.complete_flags("import_plan", arglead)
+  end
+
+  return vim.fn.getcompletion(arglead or "", "file")
+end
+
+function M.complete_import_apply(arglead)
+  if vim.startswith(arglead or "", "-") then
+    return M.complete_flags("import_apply", arglead)
+  end
+
+  return vim.fn.getcompletion(arglead or "", "file")
+end
+
+function M.complete_export_markdown(arglead)
+  if vim.startswith(arglead or "", "-") then
+    return M.complete_flags("export_markdown", arglead)
   end
 
   return vim.fn.getcompletion(arglead or "", "file")

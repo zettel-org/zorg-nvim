@@ -121,6 +121,16 @@ assigned filetype `zorg`.
   result buffers by default.
 - `:ZorgFix [args]` runs `zorg fix --root {root}`.
 - `:ZorgCapture [args]` runs `zorg capture --root {root}`.
+- `:ZorgImportPlan [paths/flags]` runs `zorg import legacy plan --json`.
+- `:ZorgImportApply[!] [paths/flags]` confirms, then runs
+  `zorg import legacy apply --json`. The bang form skips the confirmation.
+- `:ZorgExportMarkdown [selector/flags]` runs `zorg export markdown`.
+- `:ZorgExportCurrent [flags]` exports the current buffer's canonical zettel
+  ID with `zorg export markdown --id`.
+- `:ZorgExportSubtree @id [flags]` exports a subtree with
+  `zorg export markdown --subtree`.
+- `:ZorgExportQuery {query}` exports a query result set with
+  `zorg export markdown --query`.
 
 These commands are intentionally thin wrappers. Zorg semantics remain in the
 CLI and shared Rust crates.
@@ -134,6 +144,11 @@ Examples:
 :ZorgQuery --id @queries/today
 :ZorgFix %
 :ZorgCapture --template @system/templates/todo --title "Follow up"
+:ZorgImportPlan legacy-notes --dest imported
+:ZorgImportApply legacy-notes --dest imported
+:ZorgExportCurrent --stdout
+:ZorgExportSubtree @projects/example --out /tmp/zorg-md --json
+:ZorgExportQuery #z/todo -did:*
 ```
 
 `:ZorgQuery` preserves an inline SWOG query as one CLI argument, so query text
@@ -144,6 +159,11 @@ buffer-local `<CR>`/`o` actions for source locations. Pass `--format list` or
 `:ZorgFix` defaults to the current `.z` buffer when no file argument is given.
 If the buffer is modified, write it first or use `:ZorgFix!` to write before
 running the fix command.
+
+Import review buffers group planned writes, warnings, lossy transforms,
+unsupported forms, errors, and apply write results from the Rust JSON
+contracts. Export commands display Markdown stdout directly and render JSON
+directory/write reports when `--json` or `--format json` is requested.
 
 ## Rust Contract Notes
 
@@ -218,7 +238,9 @@ names are both `zorg`; this plugin calls `vim.treesitter.language.register` for
 that mapping during setup.
 
 `:checkhealth zorg` reports whether the Tree-sitter runtime, parser, and query
-files are visible to Neovim.
+files are visible to Neovim. It also probes the installed `zorg` help output
+for `import legacy` and `export markdown` support so older binaries are called
+out before a wrapper is used.
 
 ## Health
 
@@ -228,9 +250,10 @@ Run:
 :checkhealth zorg
 ```
 
-The health check verifies Lua module loading, command availability, LSP
-availability and versions, configured root and database paths, Tree-sitter
-runtime support, parser visibility, and query file visibility.
+The health check verifies Lua module loading, command availability, import and
+export contract availability, LSP availability and versions, configured root
+and database paths, Tree-sitter runtime support, parser visibility, and query
+file visibility.
 
 If LSP does not start, check that `zorg-ls --version` works in the same
 environment that launches Neovim and that `root` or a nearby `.zorgroot` marker
@@ -244,6 +267,7 @@ Smoke test:
 ```sh
 nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/smoke.lua -c "qa"
 nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/commands.lua -c "qa"
+nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/import_export.lua -c "qa"
 nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/query_results.lua -c "qa"
 nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/helpers.lua -c "qa"
 nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/lsp.lua -c "qa"

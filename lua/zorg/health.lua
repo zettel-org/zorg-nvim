@@ -40,6 +40,17 @@ local function executable_version(command)
   return true, binary, nil
 end
 
+local function help_contains(binary, args, needle)
+  local argv = { binary }
+  vim.list_extend(argv, args)
+  local ok_system, output = pcall(vim.fn.systemlist, argv)
+  if not ok_system then
+    return false
+  end
+
+  return vim.v.shell_error == 0 and table.concat(output, "\n"):match(needle) ~= nil
+end
+
 local function nvim_version()
   local ok_version, version = pcall(vim.version)
   if not ok_version or type(version) ~= "table" then
@@ -68,6 +79,16 @@ function M.check()
   local cli_found, cli_binary, cli_version = executable_version(opts.cli.command)
   if cli_found then
     ok(cli_binary .. " is executable" .. (cli_version and ": " .. cli_version or ""))
+    if help_contains(cli_binary, { "import", "--help" }, "legacy") then
+      ok("zorg import legacy contract appears available")
+    else
+      warn("zorg import legacy contract was not detected; import wrappers will report unavailable")
+    end
+    if help_contains(cli_binary, { "export", "--help" }, "markdown") then
+      ok("zorg export markdown contract appears available")
+    else
+      warn("zorg export markdown contract was not detected; export wrappers will report unavailable")
+    end
   else
     warn(cli_binary .. " was not found; command stubs will fail until the Zorg CLI is installed")
   end
