@@ -78,6 +78,13 @@ Default options:
     commands = {
       enabled = true,
     },
+    watcher = {
+      enabled = true,
+      autostart = false,
+      debounce_ms = nil,
+      show_logs = false,
+      job_policy = "per_root",
+    },
     mappings = {
       enabled = false,
       prefix = "<leader>z",
@@ -266,11 +273,12 @@ Run:
 <
 
 The health check reports whether the Lua modules load, the `zorg` and `zorg-ls`
-executables are present with versions when available, import/export contracts
-appear in the installed `zorg` help output, the configured root and database
-path are clear, and the Tree-sitter runtime, parser, and query files are
-available in Neovim. It also reports whether the Neovim version satisfies the
-0.10+ support target.
+executables are present with versions when available, watch/query JSON and
+import/export contracts appear in the installed `zorg` help output, the
+configured root and database path are clear, effective watcher settings are
+visible, and the Tree-sitter runtime, parser, and query files are available in
+Neovim. It also reports whether the Neovim version satisfies the 0.10+ support
+target.
 
 ==============================================================================
 DEVELOPMENT                                              *zorg-development*
@@ -278,6 +286,8 @@ DEVELOPMENT                                              *zorg-development*
 Headless smoke validation:
 >
   nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/smoke.lua -c "qa"
+  nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/config.lua -c "qa"
+  nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/health.lua -c "qa"
   nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/commands.lua -c "qa"
   nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/import_export.lua -c "qa"
   nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/query_results.lua -c "qa"

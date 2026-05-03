@@ -25,6 +25,18 @@ local function first_line(lines)
   return nil
 end
 
+local function label(value)
+  if value == nil then
+    return "default"
+  end
+
+  return tostring(value)
+end
+
+local function bool_label(value)
+  return value and "enabled" or "disabled"
+end
+
 local function executable_version(command)
   local binary = command_binary(command)
   if vim.fn.executable(binary) ~= 1 then
@@ -49,6 +61,14 @@ local function help_contains(binary, args, needle)
   end
 
   return vim.v.shell_error == 0 and table.concat(output, "\n"):match(needle) ~= nil
+end
+
+local function report_contract(binary, args, needle, ok_message, warn_message)
+  if help_contains(binary, args, needle) then
+    ok(ok_message)
+  else
+    warn(warn_message)
+  end
 end
 
 local function nvim_version()
@@ -79,16 +99,34 @@ function M.check()
   local cli_found, cli_binary, cli_version = executable_version(opts.cli.command)
   if cli_found then
     ok(cli_binary .. " is executable" .. (cli_version and ": " .. cli_version or ""))
-    if help_contains(cli_binary, { "import", "--help" }, "legacy") then
-      ok("zorg import legacy contract appears available")
-    else
-      warn("zorg import legacy contract was not detected; import wrappers will report unavailable")
-    end
-    if help_contains(cli_binary, { "export", "--help" }, "markdown") then
-      ok("zorg export markdown contract appears available")
-    else
-      warn("zorg export markdown contract was not detected; export wrappers will report unavailable")
-    end
+    report_contract(
+      cli_binary,
+      { "watch", "--help" },
+      "json",
+      "zorg watch JSON contract appears available",
+      "zorg watch JSON contract was not detected; watcher commands will report unavailable"
+    )
+    report_contract(
+      cli_binary,
+      { "query", "--help" },
+      "%-%-json",
+      "zorg query --json contract appears available",
+      "zorg query --json contract was not detected; query buffers will report unavailable"
+    )
+    report_contract(
+      cli_binary,
+      { "import", "--help" },
+      "legacy",
+      "zorg import legacy contract appears available",
+      "zorg import legacy contract was not detected; import wrappers will report unavailable"
+    )
+    report_contract(
+      cli_binary,
+      { "export", "--help" },
+      "markdown",
+      "zorg export markdown contract appears available",
+      "zorg export markdown contract was not detected; export wrappers will report unavailable"
+    )
   else
     warn(cli_binary .. " was not found; command stubs will fail until the Zorg CLI is installed")
   end
@@ -115,6 +153,13 @@ function M.check()
   else
     ok("Configured Zorg database path: default under root")
   end
+
+  local watcher = opts.watcher or {}
+  ok("Watcher integration is " .. bool_label(watcher.enabled))
+  ok("Watcher autostart is " .. bool_label(watcher.autostart))
+  ok("Watcher debounce override: " .. label(watcher.debounce_ms))
+  ok("Watcher log display: " .. bool_label(watcher.show_logs))
+  ok("Watcher job policy: " .. label(watcher.job_policy))
 
   if treesitter.has_runtime() then
     ok("Tree-sitter runtime is available")

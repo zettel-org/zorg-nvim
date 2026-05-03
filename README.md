@@ -82,6 +82,13 @@ require("zorg").setup({
   commands = {
     enabled = true,
   },
+  watcher = {
+    enabled = true,
+    autostart = false,
+    debounce_ms = nil,
+    show_logs = false,
+    job_policy = "per_root",
+  },
   mappings = {
     enabled = false,
     prefix = "<leader>z",
@@ -237,10 +244,11 @@ With `nvim-treesitter`, register a local parser config that points at
 names are both `zorg`; this plugin calls `vim.treesitter.language.register` for
 that mapping during setup.
 
-`:checkhealth zorg` reports whether the Tree-sitter runtime, parser, and query
-files are visible to Neovim. It also probes the installed `zorg` help output
-for `import legacy` and `export markdown` support so older binaries are called
-out before a wrapper is used.
+`:checkhealth zorg` reports the configured root/database paths, effective
+watcher settings, and whether the Tree-sitter runtime, parser, and query files
+are visible to Neovim. It also probes the installed `zorg` help output for
+`watch --format json`, `query --json`, `import legacy`, and `export markdown`
+support so older binaries are called out before a wrapper is used.
 
 ## Health
 
@@ -250,9 +258,10 @@ Run:
 :checkhealth zorg
 ```
 
-The health check verifies Lua module loading, command availability, import and
-export contract availability, LSP availability and versions, configured root
-and database paths, Tree-sitter runtime support, parser visibility, and query
+The health check verifies Lua module loading, command availability, watch/query
+JSON contract availability, import and export contract availability, LSP
+availability and versions, configured root and database paths, effective
+watcher settings, Tree-sitter runtime support, parser visibility, and query
 file visibility.
 
 If LSP does not start, check that `zorg-ls --version` works in the same
@@ -266,6 +275,8 @@ Smoke test:
 
 ```sh
 nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/smoke.lua -c "qa"
+nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/config.lua -c "qa"
+nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/health.lua -c "qa"
 nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/commands.lua -c "qa"
 nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/import_export.lua -c "qa"
 nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/query_results.lua -c "qa"

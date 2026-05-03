@@ -12,6 +12,13 @@ local defaults = {
   commands = {
     enabled = true,
   },
+  watcher = {
+    enabled = true,
+    autostart = false,
+    debounce_ms = nil,
+    show_logs = false,
+    job_policy = "per_root",
+  },
   mappings = {
     enabled = false,
     prefix = "<leader>z",
@@ -41,21 +48,21 @@ local defaults = {
 
 M.options = vim.deepcopy(defaults)
 
+local function expand_optional(path)
+  if path and path ~= "" then
+    return vim.fn.expand(path)
+  end
+
+  return path
+end
+
 function M.setup(opts)
   M.options = vim.tbl_deep_extend("force", vim.deepcopy(defaults), opts or {})
   M.options.root = vim.fn.expand(M.options.root)
-  if M.options.db_path then
-    M.options.db_path = vim.fn.expand(M.options.db_path)
-  end
-  if M.options.database_path then
-    M.options.database_path = vim.fn.expand(M.options.database_path)
-  end
-  if M.options.lsp.db_path then
-    M.options.lsp.db_path = vim.fn.expand(M.options.lsp.db_path)
-  end
-  if M.options.lsp.database_path then
-    M.options.lsp.database_path = vim.fn.expand(M.options.lsp.database_path)
-  end
+  M.options.db_path = expand_optional(M.options.db_path)
+  M.options.database_path = expand_optional(M.options.database_path)
+  M.options.lsp.db_path = expand_optional(M.options.lsp.db_path)
+  M.options.lsp.database_path = expand_optional(M.options.lsp.database_path)
   return M.options
 end
 
