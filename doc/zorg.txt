@@ -32,13 +32,21 @@ Default options:
 >
   require("zorg").setup({
     root = "~/zorg",
+    database_path = nil,
+    db_path = nil,
+    trace = nil,
+    log_level = nil,
     cli = {
       command = "zorg",
     },
     lsp = {
       enabled = true,
       command = { "zorg-ls" },
-      root_markers = { ".zorgroot" },
+      root_markers = { ".zorgroot", "init.z" },
+      database_path = nil,
+      db_path = nil,
+      trace = nil,
+      log_level = nil,
       settings = {},
     },
     treesitter = {
@@ -74,11 +82,20 @@ make no changes.
 LSP                                                                *zorg-lsp*
 
 By default, `zorg.nvim` starts `zorg-ls` for buffers with filetype `zorg` when
-the executable is available.
+the executable is available. Existing `zorg-ls` clients are reused when their
+root matches the resolved buffer root.
 
 Root detection first looks upward for configured root markers and otherwise
-falls back to `~/zorg`, matching the Zorg v1 default root. Server behavior,
-diagnostics, completion, references, and rename safety belong to `zorg-ls`.
+falls back to `~/zorg`, matching the Zorg v1 default root. The default markers
+are `.zorgroot` and `init.z`.
+
+The client sends Rust server configuration through LSP initialization options:
+`rootPath` is the resolved root, `databasePath`/`dbPath` come from
+`database_path`/`db_path`, and `trace`/`logLevel` come from `trace`/`log_level`.
+These values may be configured either at top level or under `lsp`.
+
+Server behavior, diagnostics, completion, references, and rename safety belong
+to `zorg-ls`.
 
 ==============================================================================
 TREE-SITTER                                                *zorg-treesitter*
@@ -101,8 +118,9 @@ Run:
 <
 
 The health check reports whether the Lua modules load, the `zorg` and `zorg-ls`
-executables are present, the configured root exists, and the Tree-sitter
-runtime, parser, and query files are available in Neovim.
+executables are present with versions when available, the configured root and
+database path are clear, and the Tree-sitter runtime, parser, and query files
+are available in Neovim.
 
 ==============================================================================
 DEVELOPMENT                                              *zorg-development*
@@ -110,6 +128,7 @@ DEVELOPMENT                                              *zorg-development*
 Headless smoke validation:
 >
   nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/smoke.lua -c "qa"
+  nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/lsp.lua -c "qa"
 <
 
 Optional Lua checks:

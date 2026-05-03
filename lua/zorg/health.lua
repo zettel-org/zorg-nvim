@@ -9,6 +9,37 @@ local ok = health.ok or health.report_ok
 local warn = health.warn or health.report_warn
 local error = health.error or health.report_error
 
+local function command_binary(command)
+  if type(command) == "table" then
+    return command[1]
+  end
+
+  return command
+end
+
+local function first_line(lines)
+  if type(lines) == "table" and lines[1] and lines[1] ~= "" then
+    return lines[1]
+  end
+
+  return nil
+end
+
+local function executable_version(command)
+  local binary = command_binary(command)
+  if vim.fn.executable(binary) ~= 1 then
+    return false, binary
+  end
+
+  local output = vim.fn.systemlist({ binary, "--version" })
+  local version = first_line(output)
+  if vim.v.shell_error == 0 and version then
+    return true, binary, version
+  end
+
+  return true, binary, nil
+end
+
 function M.check()
   local opts = config.get()
 
@@ -16,24 +47,34 @@ function M.check()
 
   ok("zorg.nvim Lua modules are loadable")
 
-  if vim.fn.executable(opts.cli.command) == 1 then
-    ok(opts.cli.command .. " is executable")
+  local cli_found, cli_binary, cli_version = executable_version(opts.cli.command)
+  if cli_found then
+    ok(cli_binary .. " is executable" .. (cli_version and ": " .. cli_version or ""))
   else
-    warn(
-      opts.cli.command .. " was not found; command stubs will fail until the Zorg CLI is installed"
-    )
+    warn(cli_binary .. " was not found; command stubs will fail until the Zorg CLI is installed")
   end
 
-  if vim.fn.executable(opts.lsp.command[1]) == 1 then
-    ok(opts.lsp.command[1] .. " is executable")
+  local lsp_found, lsp_binary, lsp_version = executable_version(opts.lsp.command)
+  if lsp_found then
+    ok(lsp_binary .. " is executable" .. (lsp_version and ": " .. lsp_version or ""))
   else
-    warn(opts.lsp.command[1] .. " was not found; LSP startup will be skipped")
+    warn(lsp_binary .. " was not found; LSP startup will be skipped")
   end
 
   if vim.fn.isdirectory(opts.root) == 1 then
     ok("Zorg root exists: " .. opts.root)
   else
     warn("Zorg root does not exist yet: " .. opts.root)
+  end
+
+  local database_path = opts.lsp.database_path
+    or opts.database_path
+    or opts.lsp.db_path
+    or opts.db_path
+  if database_path then
+    ok("Configured Zorg database path: " .. database_path)
+  else
+    ok("Configured Zorg database path: default under root")
   end
 
   if treesitter.has_runtime() then

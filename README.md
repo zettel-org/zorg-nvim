@@ -45,6 +45,10 @@ Defaults:
 ```lua
 require("zorg").setup({
   root = "~/zorg",
+  database_path = nil,
+  db_path = nil,
+  trace = nil,
+  log_level = nil,
   cli = {
     command = "zorg",
   },
@@ -54,7 +58,11 @@ require("zorg").setup({
   lsp = {
     enabled = true,
     command = { "zorg-ls" },
-    root_markers = { ".zorgroot" },
+    root_markers = { ".zorgroot", "init.z" },
+    database_path = nil,
+    db_path = nil,
+    trace = nil,
+    log_level = nil,
     settings = {},
   },
   treesitter = {
@@ -80,9 +88,17 @@ CLI and shared Rust crates.
 ## LSP
 
 `require("zorg").setup()` installs a `FileType zorg` autocommand that starts
-`zorg-ls` when the binary is available. Root detection looks for configured
-markers first and otherwise falls back to `~/zorg`, matching the Zorg v1
-default.
+`zorg-ls` when the binary is available. It starts only for `zorg` buffers and
+reuses an existing `zorg-ls` client for the same resolved root.
+
+Root detection looks upward from the buffer path for configured markers and
+otherwise falls back to `~/zorg`, matching the Zorg v1 default. The default
+markers are `.zorgroot` and `init.z`.
+
+The client passes Rust server configuration through LSP initialization options:
+`rootPath` is the resolved root, `databasePath`/`dbPath` come from
+`database_path`/`db_path`, and `trace`/`logLevel` come from `trace`/`log_level`.
+Those values can be configured either at the top level or under `lsp`.
 
 ## Tree-sitter
 
@@ -107,7 +123,8 @@ Run:
 ```
 
 The health check verifies Lua module loading, command availability, LSP
-availability, default root presence, and Tree-sitter runtime support.
+availability and versions, configured root and database paths, and Tree-sitter
+runtime support.
 
 ## Development
 
@@ -115,6 +132,7 @@ Smoke test:
 
 ```sh
 nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/smoke.lua -c "qa"
+nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/lsp.lua -c "qa"
 ```
 
 Optional local checks:
