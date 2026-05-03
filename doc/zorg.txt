@@ -30,6 +30,26 @@ Add the plugin with your preferred plugin manager, then call:
   require("zorg").setup()
 <
 
+Example with lazy.nvim:
+>
+  {
+    "zettel-org/zorg-nvim",
+    config = function()
+      require("zorg").setup()
+    end,
+  }
+<
+
+Example with packer.nvim:
+>
+  use({
+    "zettel-org/zorg-nvim",
+    config = function()
+      require("zorg").setup()
+    end,
+  })
+<
+
 Example with a sibling development checkout:
 >
   vim.opt.runtimepath:prepend("~/projects/github/zettel-org/zorg-nvim")
