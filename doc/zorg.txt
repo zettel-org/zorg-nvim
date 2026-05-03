@@ -16,10 +16,9 @@ INTRODUCTION                                                *zorg-introduction*
 
 zorg.nvim provides the Neovim integration shell for Zorg `.z` files.
 
-The current plugin is intentionally skeletal. It detects `.z` files, exposes a
-stable setup entry point, registers command surfaces, and prepares integration
-points for the future `zorg` CLI, `zorg-ls` language server, and
-`zorg-treesitter` parser.
+The plugin detects `.z` files, exposes a stable setup entry point, registers
+command surfaces, wires the `zorg-ls` language server, and connects Neovim's
+Tree-sitter runtime to the `zorg-treesitter` parser and query files.
 
 ==============================================================================
 SETUP                                                            *zorg-setup*
@@ -84,9 +83,14 @@ diagnostics, completion, references, and rename safety belong to `zorg-ls`.
 ==============================================================================
 TREE-SITTER                                                *zorg-treesitter*
 
-`zorg.nvim` registers the `zorg` filetype for a future Zorg Tree-sitter parser.
-The parser itself is expected to come from `zorg-treesitter` or a plugin-manager
-parser installation. This plugin does not implement Zorg syntax in Lua.
+`zorg.nvim` registers filetype `zorg` to use parser language `zorg` and ships
+Neovim query files copied from `zorg-treesitter/queries`.
+
+The parser itself is expected to come from `zorg-treesitter` or a
+plugin-manager parser installation. For sibling-repo development, build or
+install the parser from `../zorg-treesitter`, then make the compiled
+`parser/zorg.{so,dylib,dll}` file available on Neovim's 'runtimepath'. This
+plugin does not implement Zorg syntax in Lua.
 
 ==============================================================================
 HEALTH                                                        *zorg-health*
@@ -97,8 +101,8 @@ Run:
 <
 
 The health check reports whether the Lua modules load, the `zorg` and `zorg-ls`
-executables are present, the configured root exists, and Tree-sitter support is
-available in Neovim.
+executables are present, the configured root exists, and the Tree-sitter
+runtime, parser, and query files are available in Neovim.
 
 ==============================================================================
 DEVELOPMENT                                              *zorg-development*

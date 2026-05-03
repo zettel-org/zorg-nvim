@@ -10,10 +10,10 @@ index, query, capture, or format Zorg data in Lua.
 ## Requirements
 
 - Neovim 0.10 or newer.
-- The future `zorg` CLI for command execution.
-- The future `zorg-ls` binary for LSP support.
-- The future Zorg Tree-sitter parser from `zorg-treesitter` for highlighting
-  and structural queries.
+- The `zorg` CLI for command execution.
+- The `zorg-ls` binary for LSP support.
+- The Zorg Tree-sitter parser from `zorg-treesitter` for highlighting and
+  structural queries.
 
 Missing Zorg binaries are reported clearly by commands, LSP startup, and
 `:checkhealth zorg`.
@@ -86,9 +86,17 @@ default.
 
 ## Tree-sitter
 
-The plugin registers the `zorg` filetype for the future `zorg` parser. Parser
-installation and query files belong to `zorg-treesitter` and the user's parser
-manager configuration.
+The plugin registers filetype `zorg` to use parser language `zorg` and ships
+Neovim runtime query files copied from `zorg-treesitter/queries`.
+
+Parser installation still belongs to the user or plugin manager. For local
+development with sibling repos, build or install the parser from
+`../zorg-treesitter`, then make the compiled `parser/zorg.{so,dylib,dll}` file
+available on Neovim's `runtimepath` through your parser manager or a local
+runtime directory.
+
+`:checkhealth zorg` reports whether the Tree-sitter runtime, parser, and query
+files are visible to Neovim.
 
 ## Health
 

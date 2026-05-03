@@ -1,4 +1,5 @@
 local config = require("zorg.config")
+local treesitter = require("zorg.treesitter")
 
 local M = {}
 
@@ -35,8 +36,24 @@ function M.check()
     warn("Zorg root does not exist yet: " .. opts.root)
   end
 
-  if vim.treesitter and vim.treesitter.language then
+  if treesitter.has_runtime() then
     ok("Tree-sitter runtime is available")
+
+    local parser_name = opts.treesitter.parser_name or "zorg"
+    local parser_ok, parser_err = treesitter.parser_available(parser_name)
+    if parser_ok then
+      ok("Tree-sitter parser is available: " .. parser_name)
+    else
+      warn("Tree-sitter parser is unavailable for " .. parser_name .. ": " .. tostring(parser_err))
+    end
+
+    for query_name, query in pairs(treesitter.query_status(parser_name)) do
+      if query.available then
+        ok("Tree-sitter " .. query_name .. " query found: " .. query.files[1])
+      else
+        warn("Tree-sitter " .. query_name .. " query was not found for " .. parser_name)
+      end
+    end
   else
     error("Tree-sitter runtime is unavailable in this Neovim build")
   end
