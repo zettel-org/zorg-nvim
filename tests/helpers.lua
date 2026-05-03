@@ -127,7 +127,11 @@ vim.fn.writefile({ "%%% @note #z/ref", "Note", "%%%" }, note)
 vim.cmd("edit " .. vim.fn.fnameescape(note))
 vim.bo.filetype = "zorg"
 helpers.fix_current_buffer()
-assert_eq(runs[#runs], { bin, "fix", note }, "fix helper should use current-buffer fix")
+assert_eq(
+  runs[#runs],
+  { bin, "fix", "--root", root, note },
+  "fix helper should use current-buffer fix with store options"
+)
 
 local original_ui_input = vim.ui.input
 local prompts = {}

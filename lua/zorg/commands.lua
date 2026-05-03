@@ -349,8 +349,7 @@ function M.fix(command_opts)
     return
   end
 
-  local argv = command_argv({ "fix" })
-  vim.list_extend(argv, args)
+  local argv = store_command_argv({ "fix" }, args)
   run_cli("Fix", argv, function(result)
     display_text_result("Fix", result)
   end)

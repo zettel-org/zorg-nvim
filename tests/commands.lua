@@ -148,7 +148,15 @@ vim.fn.writefile({ "%%% @note #z/ref", "Note", "%%%" }, note)
 vim.cmd("edit " .. vim.fn.fnameescape(note))
 vim.bo.filetype = "zorg"
 vim.cmd("ZorgFix")
-assert_eq(runs[#runs], { bin, "fix", note }, "ZorgFix should default to the current .z buffer")
+assert_eq(runs[#runs], {
+  bin,
+  "fix",
+  "--root",
+  root,
+  "--db",
+  db,
+  note,
+}, "ZorgFix should default to the current .z buffer and pass store options")
 
 vim.api.nvim_buf_set_lines(0, 1, 2, false, { "Changed note" })
 local before_modified = #runs
@@ -162,11 +170,15 @@ assert(
 )
 
 vim.cmd("ZorgFix!")
-assert_eq(
-  runs[#runs],
-  { bin, "fix", note },
-  "ZorgFix! should write before running current-buffer fix"
-)
+assert_eq(runs[#runs], {
+  bin,
+  "fix",
+  "--root",
+  root,
+  "--db",
+  db,
+  note,
+}, "ZorgFix! should write before running current-buffer fix")
 
 local captured = root .. "/captured.z"
 vim.fn.writefile({ "%%% @captured #z/ref", "Captured", "%%%" }, captured)

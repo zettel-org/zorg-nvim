@@ -18,7 +18,8 @@ zorg.nvim provides the Neovim integration shell for Zorg `.z` files.
 
 The plugin detects `.z` files, exposes a stable setup entry point, registers
 command surfaces, wires the `zorg-ls` language server, and connects Neovim's
-Tree-sitter runtime to the `zorg-treesitter` parser and query files.
+Tree-sitter runtime to the `zorg-treesitter` parser and query files. Zorg
+semantics stay in the Rust CLI, language server, and Tree-sitter grammar.
 
 ==============================================================================
 SETUP                                                            *zorg-setup*
@@ -26,6 +27,19 @@ SETUP                                                            *zorg-setup*
 Add the plugin with your preferred plugin manager, then call:
 >
   require("zorg").setup()
+<
+
+Example with a sibling development checkout:
+>
+  vim.opt.runtimepath:prepend("~/projects/github/zettel-org/zorg-nvim")
+  require("zorg").setup({
+    cli = {
+      command = "~/projects/github/zettel-org/zorg/target/debug/zorg",
+    },
+    lsp = {
+      command = { "~/projects/github/zettel-org/zorg/target/debug/zorg-ls" },
+    },
+  })
 <
 
 Default options:
@@ -64,7 +78,10 @@ COMMANDS                                                      *zorg-commands*
 The plugin defines these user commands:
 
                                                         *:ZorgIndex*
-:ZorgIndex [args]       Run `zorg index --root {root}` with optional args.
+:ZorgIndex [args]       Run `zorg db reindex --root {root}` with optional args.
+
+                                                        *:ZorgStatus*
+:ZorgStatus [args]      Run `zorg db status --root {root}` with optional args.
 
                                                         *:ZorgQuery*
 :ZorgQuery [args]       Run `zorg query --root {root}` with optional args.
@@ -77,6 +94,19 @@ The plugin defines these user commands:
 
 If the `zorg` executable is unavailable, commands fail with a clear error and
 make no changes.
+
+Inline query text is passed as a single CLI argument, so:
+>
+  :ZorgQuery #z/todo -did:*
+<
+is sent as one SWOG query. Stored query zettel may be run with:
+>
+  :ZorgQuery --id @queries/today
+<
+
+`:ZorgFix` defaults to the current `.z` buffer when no file argument is given.
+If that buffer is modified, write it first or use `:ZorgFix!` to write before
+running the fix command.
 
 ==============================================================================
 LSP                                                                *zorg-lsp*
@@ -109,6 +139,10 @@ install the parser from `../zorg-treesitter`, then make the compiled
 `parser/zorg.{so,dylib,dll}` file available on Neovim's 'runtimepath'. This
 plugin does not implement Zorg syntax in Lua.
 
+The parser language and Neovim filetype names are both `zorg`. During setup the
+plugin registers that mapping with `vim.treesitter.language.register` when the
+API is available.
+
 ==============================================================================
 HEALTH                                                        *zorg-health*
 
@@ -120,7 +154,8 @@ Run:
 The health check reports whether the Lua modules load, the `zorg` and `zorg-ls`
 executables are present with versions when available, the configured root and
 database path are clear, and the Tree-sitter runtime, parser, and query files
-are available in Neovim.
+are available in Neovim. It also reports whether the Neovim version satisfies
+the 0.10+ support target.
 
 ==============================================================================
 DEVELOPMENT                                              *zorg-development*
@@ -128,6 +163,8 @@ DEVELOPMENT                                              *zorg-development*
 Headless smoke validation:
 >
   nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/smoke.lua -c "qa"
+  nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/commands.lua -c "qa"
+  nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/helpers.lua -c "qa"
   nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/lsp.lua -c "qa"
 <
 
@@ -137,8 +174,8 @@ Optional Lua checks:
   luacheck lua tests filetype.lua plugin ftplugin
 <
 
-The current skeleton intentionally avoids parser, query, model, capture, and
-formatter semantics. Those integrations should delegate to the Zorg CLI,
-language server, and Tree-sitter parser as those projects mature.
+The plugin intentionally avoids parser, query, model, capture, and formatter
+semantics. Those integrations delegate to the Zorg CLI, language server, and
+Tree-sitter parser.
 
 vim:tw=78:ts=8:noet:ft=help:norl:

@@ -40,12 +40,30 @@ local function executable_version(command)
   return true, binary, nil
 end
 
+local function nvim_version()
+  if type(vim.version) ~= "function" then
+    return false, "unknown"
+  end
+
+  local version = vim.version()
+  local label =
+    string.format("%d.%d.%d", version.major or 0, version.minor or 0, version.patch or 0)
+  return (version.major or 0) > 0 or (version.minor or 0) >= 10, label
+end
+
 function M.check()
   local opts = config.get()
 
   start("zorg.nvim")
 
   ok("zorg.nvim Lua modules are loadable")
+
+  local supported, version = nvim_version()
+  if supported then
+    ok("Neovim version is supported: " .. version)
+  else
+    error("Neovim 0.10 or newer is required; current version: " .. version)
+  end
 
   local cli_found, cli_binary, cli_version = executable_version(opts.cli.command)
   if cli_found then
