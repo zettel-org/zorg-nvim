@@ -41,11 +41,11 @@ local function executable_version(command)
 end
 
 local function nvim_version()
-  if type(vim.version) ~= "function" then
+  local ok_version, version = pcall(vim.version)
+  if not ok_version or type(version) ~= "table" then
     return false, "unknown"
   end
 
-  local version = vim.version()
   local label =
     string.format("%d.%d.%d", version.major or 0, version.minor or 0, version.patch or 0)
   return (version.major or 0) > 0 or (version.minor or 0) >= 10, label
