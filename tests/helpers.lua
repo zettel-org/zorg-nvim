@@ -85,8 +85,9 @@ test.assert_last_argv(runner, {
   "query",
   "--root",
   root,
+  "--json",
   "#z/todo -did:*",
-}, "query helper should preserve inline SWOG as one argument")
+}, "query helper should prefer JSON and preserve inline SWOG as one argument")
 
 local note = root .. "/note.z"
 vim.fn.writefile({ "%%% @note #z/ref", "Note", "%%%" }, note)
@@ -140,6 +141,7 @@ test.assert_last_argv(runner, {
   "query",
   "--root",
   root,
+  "--json",
   "#z/query",
 }, "query prompt should delegate to ZorgQuery command logic")
 
@@ -147,7 +149,7 @@ vim.ui.input = original_ui_input
 
 test.assert_eq(
   commands.complete_query("--"),
-  { "--db", "--help", "--id", "--root" },
+  { "--db", "--format", "--help", "--id", "--json", "--root" },
   "query completion should return cheap known flags"
 )
 test.assert_eq(

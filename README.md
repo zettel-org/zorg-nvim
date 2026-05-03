@@ -117,7 +117,8 @@ assigned filetype `zorg`.
 
 - `:ZorgIndex [args]` runs `zorg db reindex --root {root}`.
 - `:ZorgStatus [args]` runs `zorg db status --root {root}`.
-- `:ZorgQuery [args]` runs `zorg query --root {root}`.
+- `:ZorgQuery [args]` runs `zorg query --root {root}` and requests JSON
+  result buffers by default.
 - `:ZorgFix [args]` runs `zorg fix --root {root}`.
 - `:ZorgCapture [args]` runs `zorg capture --root {root}`.
 
@@ -136,7 +137,10 @@ Examples:
 ```
 
 `:ZorgQuery` preserves an inline SWOG query as one CLI argument, so query text
-such as `#z/todo -did:*` is not split into unrelated positional arguments.
+such as `#z/todo -did:*` is not split into unrelated positional arguments. It
+prefers `zorg query --json` and renders LIST/TABLE result buffers with
+buffer-local `<CR>`/`o` actions for source locations. Pass `--format list` or
+`--format text` when you want the raw human output instead.
 `:ZorgFix` defaults to the current `.z` buffer when no file argument is given.
 If the buffer is modified, write it first or use `:ZorgFix!` to write before
 running the fix command.
@@ -240,6 +244,7 @@ Smoke test:
 ```sh
 nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/smoke.lua -c "qa"
 nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/commands.lua -c "qa"
+nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/query_results.lua -c "qa"
 nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/helpers.lua -c "qa"
 nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/lsp.lua -c "qa"
 nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/contracts.lua -c "qa"

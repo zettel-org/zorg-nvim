@@ -53,7 +53,13 @@ test.assert_last_argv(runner, {
 
 runner.result = {
   code = 0,
-  stdout = "[ ] @task  inbox.z  Task",
+  stdout = vim.json.encode(test.fixtures.query_list({
+    test.fixtures.query_list_row({
+      canonical_id = "@task",
+      path = "inbox.z",
+      title = "Task",
+    }),
+  })),
   stderr = "",
 }
 vim.cmd("ZorgQuery #z/todo -did:*")
@@ -64,12 +70,14 @@ test.assert_last_argv(runner, {
   root,
   "--db",
   db,
+  "--json",
   "#z/todo -did:*",
-}, "ZorgQuery should preserve inline SWOG as one CLI argument")
+}, "ZorgQuery should prefer JSON and preserve inline SWOG as one CLI argument")
 test.wait_for_current_buffer_name("Zorg Query Results", "query output should open a result buffer")
-test.assert_current_lines(
-  { "[ ] @task  inbox.z  Task" },
-  "query result buffer should contain stdout"
+assert(
+  vim.api.nvim_buf_get_lines(0, 0, -1, false)[1]:match("@task")
+    and vim.api.nvim_buf_get_lines(0, 0, -1, false)[1]:match("inbox%.z:1:1"),
+  "query result buffer should render JSON row identity and location"
 )
 
 vim.cmd("ZorgQuery --id @query/daily")
@@ -80,9 +88,28 @@ test.assert_last_argv(runner, {
   root,
   "--db",
   db,
+  "--json",
   "--id",
   "@query/daily",
-}, "ZorgQuery --id should preserve flag arguments")
+}, "ZorgQuery --id should prefer JSON and preserve flag arguments")
+
+runner.result = {
+  code = 0,
+  stdout = "[ ] @task  inbox.z  Task",
+  stderr = "",
+}
+vim.cmd("ZorgQuery --format list #z/todo -did:*")
+test.assert_last_argv(runner, {
+  bin,
+  "query",
+  "--root",
+  root,
+  "--db",
+  db,
+  "--format",
+  "list",
+  "#z/todo -did:*",
+}, "ZorgQuery should keep explicit text/list output requests")
 
 runner.result = {
   code = 2,

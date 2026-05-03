@@ -95,14 +95,20 @@ test.assert_last_argv(
 
 runner.result = {
   code = 0,
-  stdout = "[ ] @task  sample.z  Task",
+  stdout = vim.json.encode(test.fixtures.query_list({
+    test.fixtures.query_list_row({
+      canonical_id = "@task",
+      path = "sample.z",
+      title = "Task",
+    }),
+  })),
   stderr = "",
 }
 vim.cmd("ZorgQuery #z/todo -did:*")
 test.assert_last_argv(
   runner,
-  { zorg, "query", "--root", root, "--db", root .. "/.zorg/zorg.sqlite3", "#z/todo -did:*" },
-  "ZorgQuery should preserve inline SWOG as one argument"
+  { zorg, "query", "--root", root, "--db", root .. "/.zorg/zorg.sqlite3", "--json", "#z/todo -did:*" },
+  "ZorgQuery should prefer JSON and preserve inline SWOG as one argument"
 )
 test.wait_for_current_buffer_name("Zorg Query Results", "ZorgQuery should open query output")
 
