@@ -124,6 +124,10 @@ assigned filetype `zorg`.
 
 - `:ZorgIndex [args]` runs `zorg db reindex --root {root}`.
 - `:ZorgStatus [args]` runs `zorg db status --root {root}`.
+- `:ZorgWatchStart [args]` starts one `zorg watch --format json` job for the
+  configured root.
+- `:ZorgWatchStop` stops the managed watcher job for the configured root.
+- `:ZorgWatchStatus` opens a lightweight watcher status buffer.
 - `:ZorgQuery [args]` runs `zorg query --root {root}` and requests JSON
   result buffers by default.
 - `:ZorgFix [args]` runs `zorg fix --root {root}`.
@@ -147,6 +151,9 @@ Examples:
 ```vim
 :ZorgIndex
 :ZorgStatus
+:ZorgWatchStart
+:ZorgWatchStatus
+:ZorgWatchStop
 :ZorgQuery #z/todo -did:*
 :ZorgQuery --id @queries/today
 :ZorgFix %
@@ -163,6 +170,13 @@ such as `#z/todo -did:*` is not split into unrelated positional arguments. It
 prefers `zorg query --json` and renders LIST/TABLE result buffers with
 buffer-local `<CR>`/`o` actions for source locations. Pass `--format list` or
 `--format text` when you want the raw human output instead.
+
+`:ZorgWatchStart` runs `zorg watch --root {root} [--db {db}] --format json`,
+adds `--debounce {ms}` when `watcher.debounce_ms` is configured, and refuses to
+start a duplicate job for the same resolved root. Watcher lifecycle JSON
+states are surfaced through notifications and `:ZorgWatchStatus`. Watchers are
+stopped on Neovim exit.
+
 `:ZorgFix` defaults to the current `.z` buffer when no file argument is given.
 If the buffer is modified, write it first or use `:ZorgFix!` to write before
 running the fix command.
@@ -278,6 +292,7 @@ nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/smoke.lua -c "qa"
 nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/config.lua -c "qa"
 nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/health.lua -c "qa"
 nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/commands.lua -c "qa"
+nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/watcher.lua -c "qa"
 nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/import_export.lua -c "qa"
 nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/query_results.lua -c "qa"
 nvim --headless -u NONE -n --cmd "set rtp^=." -S tests/helpers.lua -c "qa"

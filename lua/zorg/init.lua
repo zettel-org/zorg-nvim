@@ -9,6 +9,8 @@ function M.setup(opts)
 
   if config.commands.enabled then
     require("zorg.commands").setup()
+  else
+    require("zorg.watcher").setup(config.watcher)
   end
 
   require("zorg.mappings").setup(config.mappings)

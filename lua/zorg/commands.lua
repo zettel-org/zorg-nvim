@@ -113,6 +113,17 @@ local completions = {
     "--help",
     "--root",
   },
+  watch = {
+    "--db",
+    "--debounce",
+    "--exit-after-events",
+    "--exit-after-ready",
+    "--format",
+    "--help",
+    "--json",
+    "--once",
+    "--root",
+  },
 }
 
 local function schedule(fn)
@@ -1367,7 +1378,20 @@ function M.export_query(command_opts)
   run_export("ExportQuery", { "--query", raw })
 end
 
+function M.watch_start(command_opts)
+  require("zorg.watcher").start(command_opts)
+end
+
+function M.watch_stop(command_opts)
+  require("zorg.watcher").stop(command_opts)
+end
+
+function M.watch_status(command_opts)
+  require("zorg.watcher").status(command_opts)
+end
+
 function M.setup()
+  require("zorg.watcher").setup()
   vim.api.nvim_create_user_command("ZorgIndex", M.index, {
     complete = M.complete_index,
     desc = "Reindex the configured Zorg root",
@@ -1377,6 +1401,22 @@ function M.setup()
   vim.api.nvim_create_user_command("ZorgStatus", M.status, {
     complete = M.complete_status,
     desc = "Show Zorg database status",
+    nargs = "*",
+    force = true,
+  })
+  vim.api.nvim_create_user_command("ZorgWatchStart", M.watch_start, {
+    complete = M.complete_watch,
+    desc = "Start the Zorg live indexing watcher",
+    nargs = "*",
+    force = true,
+  })
+  vim.api.nvim_create_user_command("ZorgWatchStop", M.watch_stop, {
+    desc = "Stop the Zorg live indexing watcher",
+    nargs = "*",
+    force = true,
+  })
+  vim.api.nvim_create_user_command("ZorgWatchStatus", M.watch_status, {
+    desc = "Show Zorg watcher lifecycle status",
     nargs = "*",
     force = true,
   })
@@ -1488,6 +1528,10 @@ end
 
 function M.complete_status(arglead)
   return M.complete_flags("status", arglead)
+end
+
+function M.complete_watch(arglead)
+  return M.complete_flags("watch", arglead)
 end
 
 function M.complete_query(arglead)

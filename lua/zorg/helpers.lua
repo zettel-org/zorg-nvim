@@ -96,4 +96,16 @@ function M.status(args)
   commands.status(command_opts(args))
 end
 
+function M.watch_start(args)
+  commands.watch_start(command_opts(args))
+end
+
+function M.watch_stop(args)
+  commands.watch_stop(command_opts(args))
+end
+
+function M.watch_status(args)
+  commands.watch_status(command_opts(args))
+end
+
 return M
