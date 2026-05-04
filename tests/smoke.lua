@@ -58,6 +58,11 @@ test.assert_eq(
   "messages",
   "LSP trace should come from setup"
 )
+test.assert_eq(
+  captured_lsp_start.client_config.initialization_options.refreshOnSave,
+  "diagnostics",
+  "LSP refreshOnSave should default to diagnostics-only"
+)
 
 local treesitter = require("zorg.treesitter")
 assert(treesitter.has_runtime(), "Tree-sitter runtime should be available in Neovim")

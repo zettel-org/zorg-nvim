@@ -37,10 +37,12 @@ local defaults = {
   },
   lsp = {
     enabled = true,
+    autostart = true,
     command = { "zorg-ls" },
     root_markers = { ".zorgroot", "init.z" },
     db_path = nil,
     database_path = nil,
+    refresh_on_save = "diagnostics",
     trace = nil,
     log_level = nil,
     settings = {},

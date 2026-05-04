@@ -79,6 +79,11 @@ test.assert_eq(
   "messages",
   "trace should be passed"
 )
+test.assert_eq(
+  captured_start.client_config.initialization_options.refreshOnSave,
+  "diagnostics",
+  "refreshOnSave should default to diagnostics-only"
+)
 assert(
   captured_start.client_config.initialization_options.dbPath == nil,
   "dbPath should be omitted when not configured"
@@ -145,6 +150,50 @@ for _, autocmd in ipairs(autocmds) do
   end
 end
 assert(found, "setup should install a FileType zorg autocmd")
+
+config.setup({
+  root = fallback_root,
+  lsp = {
+    autostart = false,
+    command = { fake_ls },
+  },
+})
+lsp.setup()
+local disabled_autocmds = vim.api.nvim_get_autocmds({ event = "FileType", pattern = "zorg" })
+local disabled_found = false
+for _, autocmd in ipairs(disabled_autocmds) do
+  if autocmd.group_name == "zorg_lsp" then
+    disabled_found = true
+    break
+  end
+end
+assert(not disabled_found, "autostart=false should avoid the FileType zorg autocmd")
+
+config.setup({
+  root = fallback_root,
+  lsp = {
+    command = { fake_ls },
+    refresh_on_save = "reindex",
+  },
+})
+test.assert_eq(
+  lsp.initialization_options(fallback_root).refreshOnSave,
+  "reindex",
+  "refreshOnSave should pass explicit reindex policy"
+)
+
+config.setup({
+  root = fallback_root,
+  lsp = {
+    command = { fake_ls },
+    refresh_on_save = false,
+  },
+})
+test.assert_eq(
+  lsp.initialization_options(fallback_root).refreshOnSave,
+  false,
+  "refreshOnSave should pass explicit false policy"
+)
 
 vim.lsp.start = original_lsp_start
 restore_notify()

@@ -94,6 +94,9 @@ function M.initialization_options(root_dir)
   if log_level then
     init.logLevel = log_level
   end
+  if lsp_opts.refresh_on_save ~= nil then
+    init.refreshOnSave = lsp_opts.refresh_on_save
+  end
 
   return init
 end
@@ -138,7 +141,12 @@ function M.setup()
     return
   end
 
+  local opts = config.get()
   vim.api.nvim_clear_autocmds({ group = augroup })
+  if opts.lsp and opts.lsp.autostart == false then
+    return
+  end
+
   vim.api.nvim_create_autocmd("FileType", {
     group = augroup,
     pattern = "zorg",

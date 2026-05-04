@@ -47,6 +47,12 @@ test.assert_eq(opts.watcher.autostart, true, "watcher autostart should be config
 test.assert_eq(opts.watcher.debounce_ms, 250, "watcher debounce override should be configurable")
 test.assert_eq(opts.watcher.show_logs, true, "watcher log preference should be configurable")
 test.assert_eq(opts.watcher.job_policy, "per_root", "watcher job policy should be configurable")
+test.assert_eq(opts.lsp.autostart, true, "LSP autostart should default enabled")
+test.assert_eq(
+  opts.lsp.refresh_on_save,
+  "diagnostics",
+  "LSP save refresh should default to diagnostics-only"
+)
 
 local defaults = config.setup({})
 test.assert_eq(defaults.mappings.enabled, false, "mappings should stay disabled by default")
@@ -55,3 +61,20 @@ test.assert_eq(defaults.watcher.autostart, false, "watcher autostart should stay
 test.assert_eq(defaults.watcher.debounce_ms, nil, "watcher debounce should default to Rust behavior")
 test.assert_eq(defaults.watcher.show_logs, false, "watcher logs should not open by default")
 test.assert_eq(defaults.watcher.job_policy, "per_root", "watcher should default to one job per root")
+test.assert_eq(defaults.lsp.autostart, true, "LSP autostart should stay enabled by default")
+test.assert_eq(
+  defaults.lsp.refresh_on_save,
+  "diagnostics",
+  "LSP save refresh should avoid save-driven reindex by default"
+)
+
+local reindex = config.setup({
+  lsp = {
+    refresh_on_save = "reindex",
+  },
+})
+test.assert_eq(
+  reindex.lsp.refresh_on_save,
+  "reindex",
+  "LSP save refresh should allow opt-in reindex"
+)

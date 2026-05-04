@@ -107,10 +107,12 @@ require("zorg").setup({
   },
   lsp = {
     enabled = true,
+    autostart = true,
     command = { "zorg-ls" },
     root_markers = { ".zorgroot", "init.z" },
     database_path = nil,
     db_path = nil,
+    refresh_on_save = "diagnostics",
     trace = nil,
     log_level = nil,
     settings = {},
@@ -219,7 +221,8 @@ for Neovim are:
   `--id @query/id`, with schema-versioned `list`, `table`, or `aggregate`
   envelopes.
 - `zorg-ls` initialization options for `rootPath`, `databasePath`/`dbPath`,
-  `trace`, and `logLevel`; graph freshness remains a Rust/LSP responsibility.
+  `trace`, `logLevel`, and `refreshOnSave`; graph freshness remains a
+  Rust/LSP responsibility.
 - `zorg path`/`zorg open`, `zorg promote`, `zorg move`, `zorg extract`,
   `zorg import legacy`, and `zorg export markdown` JSON/text contracts when the
   installed `zorg` binary provides those commands.
@@ -261,8 +264,19 @@ markers are `.zorgroot` and `init.z`.
 
 The client passes Rust server configuration through LSP initialization options:
 `rootPath` is the resolved root, `databasePath`/`dbPath` come from
-`database_path`/`db_path`, and `trace`/`logLevel` come from `trace`/`log_level`.
-Those values can be configured either at the top level or under `lsp`.
+`database_path`/`db_path`, `trace`/`logLevel` come from `trace`/`log_level`, and
+`refreshOnSave` comes from `lsp.refresh_on_save`. Those values can be
+configured either at the top level or under `lsp`, except `refresh_on_save`,
+which is LSP-specific.
+
+The default `lsp.refresh_on_save = "diagnostics"` keeps save handling on the
+cheap live-buffer diagnostics path and avoids a corpus-wide `Store::reindex()`
+from the foreground editor save. Use `lsp.refresh_on_save = "reindex"` to keep
+the previous save-driven index refresh behavior. `false` is accepted as an
+alias for diagnostics-only saves. For large corpora, prefer `:ZorgWatchStart`
+or `watcher.autostart = true` so `zorg watch` owns background index freshness.
+Set `lsp.autostart = false` to keep commands and Tree-sitter enabled without
+automatically starting `zorg-ls` for every Zorg buffer.
 
 ## Tree-sitter
 
