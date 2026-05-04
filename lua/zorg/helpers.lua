@@ -11,10 +11,19 @@ local function split_args(args)
 end
 
 local function command_opts(args, extra)
+  local fargs = {}
+  local raw_args = args or ""
+  if type(args) == "table" then
+    fargs = args
+    raw_args = table.concat(args, " ")
+  else
+    fargs = split_args(args)
+  end
+
   local opts = vim.tbl_extend("force", {
-    args = args or "",
+    args = raw_args,
     bang = false,
-    fargs = split_args(args),
+    fargs = fargs,
   }, extra or {})
 
   return opts
@@ -96,6 +105,20 @@ function M.status(args)
   commands.status(command_opts(args))
 end
 
+function M.open(id)
+  if not id or vim.trim(id) == "" then
+    return
+  end
+
+  commands.open(command_opts(id))
+end
+
+function M.open_prompt()
+  vim.ui.input({ prompt = "Zorg ID: " }, function(input)
+    M.open(input)
+  end)
+end
+
 function M.watch_start(args)
   commands.watch_start(command_opts(args))
 end
@@ -106,6 +129,10 @@ end
 
 function M.watch_status(args)
   commands.watch_status(command_opts(args))
+end
+
+function M.export_current(args)
+  commands.export_current(command_opts(args))
 end
 
 return M

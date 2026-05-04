@@ -94,10 +94,15 @@ require("zorg").setup({
     prefix = "<leader>z",
     keys = {
       capture = "c",
+      export_current = "e",
       fix = "f",
       index = "i",
+      open = "o",
       query = "q",
       status = "s",
+      watch_start = "w",
+      watch_status = "S",
+      watch_stop = "W",
     },
   },
   lsp = {
@@ -132,6 +137,11 @@ assigned filetype `zorg`.
   result buffers by default.
 - `:ZorgFix [args]` runs `zorg fix --root {root}`.
 - `:ZorgCapture [args]` runs `zorg capture --root {root}`.
+- `:ZorgPath @id [flags]` and `:ZorgOpen @id [flags]` open the source
+  location returned by `zorg path/open --format json`.
+- `:ZorgPromote @id [flags]`, `:ZorgMove @id --to {target} [flags]`, and
+  range-based `:ZorgExtract @new/id [flags]` render Rust preview JSON,
+  confirm, then rerun with `--write`.
 - `:ZorgImportPlan [paths/flags]` runs `zorg import legacy plan --json`.
 - `:ZorgImportApply[!] [paths/flags]` confirms, then runs
   `zorg import legacy apply --json`. The bang form skips the confirmation.
@@ -158,6 +168,10 @@ Examples:
 :ZorgQuery --id @queries/today
 :ZorgFix %
 :ZorgCapture --template @system/templates/todo --title "Follow up"
+:ZorgOpen @projects/example
+:ZorgPromote @projects/example/plan --to projects/example-plan.z
+:ZorgMove @projects/example/plan --to @archive
+:'<,'>ZorgExtract @projects/example/extracted --replace-with-link
 :ZorgImportPlan legacy-notes --dest imported
 :ZorgImportApply legacy-notes --dest imported
 :ZorgExportCurrent --stdout
@@ -180,6 +194,13 @@ stopped on Neovim exit.
 `:ZorgFix` defaults to the current `.z` buffer when no file argument is given.
 If the buffer is modified, write it first or use `:ZorgFix!` to write before
 running the fix command.
+
+`:ZorgPath` and `:ZorgOpen` consume the Rust JSON location contract and jump to
+the returned `absolute_path` plus source span. `:ZorgPromote`, `:ZorgMove`, and
+`:ZorgExtract` force JSON previews, refuse direct `--write` invocation, and
+only rerun with `--write` after an explicit confirmation. `:ZorgExtract`
+converts the command range to `--file {current}` and
+`--range START_LINE:START_COL-END_LINE:END_COL`; Lua does not edit source text.
 
 Import review buffers group planned writes, warnings, lossy transforms,
 unsupported forms, errors, and apply write results from the Rust JSON
@@ -222,10 +243,11 @@ require("zorg").setup({
 })
 ```
 
-The mappings call thin Lua helpers for query prompts, capture prompts, fixing
-the current buffer, reindexing the configured root, and showing database
-status. Those helpers delegate to the same command runner as the `:Zorg*`
-commands and do not parse Zorg data in Lua.
+The default opt-in key suffixes are `i` reindex, `q` query prompt, `o` open ID
+prompt, `f` fix current buffer, `c` capture prompt, `s` database status, `w`
+watch start, `S` watch status, `W` watch stop, and `e` export current zettel to
+Markdown stdout. The mappings call thin Lua helpers that delegate to the same
+command runner as the `:Zorg*` commands and do not parse Zorg data in Lua.
 
 ## LSP
 

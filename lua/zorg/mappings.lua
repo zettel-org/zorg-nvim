@@ -35,6 +35,10 @@ function M.setup(opts)
     require("zorg.helpers").query_prompt()
   end, "Zorg query prompt")
 
+  map(prefix .. (keys.open or "o"), function()
+    require("zorg.helpers").open_prompt()
+  end, "Zorg open ID prompt")
+
   map(prefix .. (keys.fix or "f"), function()
     require("zorg.helpers").fix_current_buffer()
   end, "Zorg fix current buffer")
@@ -46,6 +50,22 @@ function M.setup(opts)
   map(prefix .. (keys.status or "s"), function()
     require("zorg.helpers").status()
   end, "Zorg database status")
+
+  map(prefix .. (keys.watch_start or "w"), function()
+    require("zorg.helpers").watch_start()
+  end, "Zorg start watcher")
+
+  map(prefix .. (keys.watch_status or "S"), function()
+    require("zorg.helpers").watch_status()
+  end, "Zorg watcher status")
+
+  map(prefix .. (keys.watch_stop or "W"), function()
+    require("zorg.helpers").watch_stop()
+  end, "Zorg stop watcher")
+
+  map(prefix .. (keys.export_current or "e"), function()
+    require("zorg.helpers").export_current({ "--stdout" })
+  end, "Zorg export current zettel")
 end
 
 function M._registered_for_test()

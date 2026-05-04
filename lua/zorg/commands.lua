@@ -42,12 +42,14 @@ local completions = {
     "--root",
   },
   move = {
+    "--check",
     "--db",
     "--format",
     "--help",
     "--json",
     "--root",
     "--to",
+    "--write",
   },
   open = {
     "--db",
@@ -64,12 +66,14 @@ local completions = {
     "--root",
   },
   promote = {
+    "--check",
     "--db",
     "--format",
     "--help",
     "--json",
     "--root",
     "--to",
+    "--write",
   },
   index = {
     "--db",
@@ -99,7 +103,10 @@ local completions = {
     "--root",
   },
   extract = {
+    "--byte-range",
+    "--check",
     "--db",
+    "--file",
     "--format",
     "--help",
     "--id",
@@ -107,6 +114,7 @@ local completions = {
     "--replace-with-link",
     "--root",
     "--to",
+    "--write",
   },
   status = {
     "--db",

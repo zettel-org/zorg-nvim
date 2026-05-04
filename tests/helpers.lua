@@ -49,7 +49,18 @@ require("zorg").setup({
 })
 test.assert_eq(
   mappings._registered_for_test(),
-  { "<leader>xi", "<leader>xq", "<leader>xf", "<leader>xc", "<leader>xs" },
+  {
+    "<leader>xi",
+    "<leader>xq",
+    "<leader>xo",
+    "<leader>xf",
+    "<leader>xc",
+    "<leader>xs",
+    "<leader>xw",
+    "<leader>xS",
+    "<leader>xW",
+    "<leader>xe",
+  },
   "enabled mappings should use the configured prefix"
 )
 assert(vim.fn.maparg("<leader>xq", "n") ~= "", "enabled mappings should be installed")
@@ -100,6 +111,18 @@ test.assert_last_argv(
   "fix helper should use current-buffer fix with store options"
 )
 
+helpers.export_current({ "--stdout" })
+test.assert_last_argv(runner, {
+  bin,
+  "export",
+  "markdown",
+  "--root",
+  root,
+  "--id",
+  "@note",
+  "--stdout",
+}, "export-current helper should delegate to ZorgExportCurrent command logic")
+
 local original_ui_input = vim.ui.input
 local prompts = {}
 local answers = {
@@ -145,6 +168,28 @@ test.assert_last_argv(runner, {
   "#z/query",
 }, "query prompt should delegate to ZorgQuery command logic")
 
+answers = { "@note" }
+prompts = {}
+runner.result = {
+  code = 0,
+  stdout = vim.json.encode({
+    absolute_path = note,
+    source_span = test.fixtures.source_span(),
+  }),
+  stderr = "",
+}
+helpers.open_prompt()
+test.assert_eq(prompts, { "Zorg ID: " }, "open helper should prompt for a zettel ID")
+test.assert_last_argv(runner, {
+  bin,
+  "open",
+  "--root",
+  root,
+  "@note",
+  "--format",
+  "json",
+}, "open prompt should delegate to ZorgOpen command logic")
+
 vim.ui.input = original_ui_input
 
 test.assert_eq(
@@ -156,6 +201,17 @@ test.assert_eq(
   commands.complete_capture("--t"),
   { "--template", "--title" },
   "capture completion should filter known flags"
+)
+
+test.assert_eq(
+  commands.complete_promote("--w"),
+  { "--write" },
+  "promote completion should include stable write mode"
+)
+test.assert_eq(
+  commands.complete_extract("--b"),
+  { "--byte-range" },
+  "extract completion should include byte-range mode"
 )
 
 local file_matches = commands.complete_fix(note:sub(1, #note - 2))

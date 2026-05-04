@@ -24,10 +24,15 @@ local defaults = {
     prefix = "<leader>z",
     keys = {
       capture = "c",
+      export_current = "e",
       fix = "f",
       index = "i",
+      open = "o",
       query = "q",
       status = "s",
+      watch_start = "w",
+      watch_status = "S",
+      watch_stop = "W",
     },
   },
   lsp = {
